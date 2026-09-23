@@ -1,0 +1,11 @@
+daily_targets:
+  holiday: 0
+  saturday: 0
+  sunday: 0
+  weekday: 0
+dialer_targets:
+  D1: 200
+  D10: 100
+team_targets:
+  T1: 100
+  T10: 100

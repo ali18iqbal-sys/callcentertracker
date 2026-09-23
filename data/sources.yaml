@@ -1,0 +1,16 @@
+google_sheets: []
+apis:
+- name: Test API
+  url: https://jsonplaceholder.typicode.com/users
+  type: client
+  auth_type: none
+  auth_value: ''
+  json_path: ''
+  enabled: true
+- name: Test CC API
+  url: https://jsonplaceholder.typicode.com/users
+  type: cc
+  auth_type: none
+  auth_value: ''
+  json_path: ''
+  enabled: true

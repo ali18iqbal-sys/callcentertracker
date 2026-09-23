@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════════════════
+#  CallCenterTracker — Configuration
+#  Yahan sab settings ek jagah. Code change nahi karni padegi.
+# ═══════════════════════════════════════════════════════════════
+
+app:
+  name: "CallCenterTracker"
+  version: "0.1.0"
+  environment: "development"     # development / production
+
+# ─────────────── Data Paths ───────────────
+paths:
+  raw:      "data/raw"
+  staging:  "data/staging"
+  master:   "data/master"
+  reports:  "data/reports"
+
+# ─────────────── Matching Rules ───────────────
+matching:
+  unique_key: "phone"
+  price_column: "price"
+  skip_if_price:
+    empty:    true
+    zero:     true
+    negative: true
+  non_numeric_action: "popup"    # popup / skip
+
+# ─────────────── Default Columns ───────────────
+columns:
+  phone:    ["phone", "phone #", "phone number", "mobile", "contact"]
+  price:    ["price", "rate", "unit price"]
+  amount:   ["amount", "total", "value"]
+  minutes:  ["minutes", "mins", "min", "duration"]
+  team:     ["team", "team name"]
+  dialer:   ["dialer", "dialer id", "agent"]
+  date:     ["date", "call date", "sale date"]
+  calls:    ["calls", "call count", "count"]
+
+# ─────────────── Feature Toggles (Future) ───────────────
+features:
+  charts:              false
+  pdf_export:          false
+  email_scheduler:     false
+  whatsapp_alerts:     false
+  public_share_link:   false
+  auto_fetch_gsheet:   false
+  api_endpoint:        false
+  client_portal:       false
+  commission_calc:     false
+  multi_client:        false
+
+# ─────────────── Calculations (Default) ───────────────
+calculations:
+  - name: "line_amount"
+    column_a: "minutes"
+    operation: "multiply"    # sum / multiply / divide / subtract
+    column_b: "price"
+    enabled: true

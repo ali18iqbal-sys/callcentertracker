@@ -1,0 +1,26 @@
+cookie:
+  expiry_days: 1
+  key: callcentertracker_secret_key_change_me
+  name: cct_cookie
+credentials:
+  usernames:
+    admin:
+      disabled: false
+      email: admin@callcenter.local
+      name: Admin
+      password: $2b$12$/UBKa/VX.v5i0nJvtGehCeyLbCd.pXjIarKsCGjWp43cUmX/YY8mS
+      role: master
+    mohsin:
+      disabled: true
+      email: mohsin@callcenter.local
+      name: Mohsin Hashmi
+      password: $2b$12$BPyatw15/EschqPpij7JTOT40UV81a3luYued8ttU/dXRfwJhtA/S
+      role: master
+    yousaf:
+      disabled: false
+      email: yousaf@callcenter.local
+      name: Yousaf Butt
+      password: $2b$12$SaLVQheGfZTx8JTMS.pgzO032V.lWYAB8EEiLf1t2TrP3yHTH5Lga
+      role: master
+preauthorized:
+  emails: []
