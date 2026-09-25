@@ -1,6 +1,8 @@
 """
 analytics.py — Performance metrics calculate karne wala module
 Team-wise, Dialer-wise conversion, amounts, dates.
+Revenue aur amount dono handle karta hai.
+Duplicate sales ko 1 baar count karta hai (_is_primary_sale).
 """
 
 import pandas as pd
@@ -11,13 +13,13 @@ def to_numeric_safe(series):
     if series is None:
         return pd.Series(dtype=float)
     return pd.to_numeric(
-        series.astype(str).str.replace(",", "", regex=False),
+        series.astype(str).str.replace(",", "", regex=False).str.replace("$", "", regex=False),
         errors="coerce"
     )
 
 
 def safe_round(value, decimals=2):
-    """Value ko safely round karo — string ho toh 0"""
+    """Value ko safely round karo"""
     try:
         if pd.isna(value):
             return 0
@@ -37,23 +39,49 @@ def safe_sum(series):
     return float(total)
 
 
+def get_amount_column(df):
+    """DataFrame mein amount ya revenue column dhoondo"""
+    if df is None or len(df) == 0:
+        return None
+    if "amount" in df.columns:
+        return "amount"
+    if "revenue" in df.columns:
+        return "revenue"
+    return None
+
+
+def get_primary_sales(df):
+    """
+    Sirf primary sales rows filter karo.
+    Agar _is_primary_sale column nahi hai toh saari rows return karo.
+    """
+    if df is None or len(df) == 0:
+        return df
+    if "_is_primary_sale" in df.columns:
+        return df[df["_is_primary_sale"] == True]
+    return df
+
+
 # ─────────────── Team Performance ───────────────
 def team_performance(sold_df, no_sale_df):
     """
-    Team-wise performance calculate karo.
-    
-    Returns: DataFrame with columns:
-        team, calls, sales, conversion_pct, amount
+    Team-wise performance.
+    Sales count = sirf primary sales (duplicate remove)
+    Calls count = saari calls (sold + no_sale)
     """
     if (sold_df is None or len(sold_df) == 0) and (no_sale_df is None or len(no_sale_df) == 0):
         return pd.DataFrame(columns=["team", "calls", "sales", "conversion_pct", "amount"])
     
-    # ─── Sold stats ───
+    # ─── Primary sales filter ───
+    sold_primary = get_primary_sales(sold_df)
+    
+    # ─── Sold stats (sirf primary) ───
     sold_stats = pd.DataFrame()
-    if sold_df is not None and len(sold_df) > 0 and "team" in sold_df.columns:
-        df = sold_df.copy()
-        if "amount" in df.columns:
-            df["_amount_num"] = to_numeric_safe(df["amount"])
+    if sold_primary is not None and len(sold_primary) > 0 and "team" in sold_primary.columns:
+        df = sold_primary.copy()
+        amount_col = get_amount_column(df)
+        if amount_col:
+            df["_amount_num"] = to_numeric_safe(df[amount_col])
         else:
             df["_amount_num"] = 0
         
@@ -62,28 +90,32 @@ def team_performance(sold_df, no_sale_df):
             amount=("_amount_num", "sum"),
         ).reset_index()
     
+    # ─── All sold calls (for calls count) ───
+    all_sold_calls = pd.DataFrame()
+    if sold_df is not None and len(sold_df) > 0 and "team" in sold_df.columns:
+        all_sold_calls = sold_df.groupby("team").size().reset_index(name="sold_calls")
+    
     # ─── No-sale stats ───
     no_sale_stats = pd.DataFrame()
     if no_sale_df is not None and len(no_sale_df) > 0 and "team" in no_sale_df.columns:
-        no_sale_stats = no_sale_df.groupby("team").agg(
-            no_sale_calls=("team", "count"),
-        ).reset_index()
+        no_sale_stats = no_sale_df.groupby("team").size().reset_index(name="no_sale_calls")
     
     # ─── Merge ───
-    if len(sold_stats) > 0 and len(no_sale_stats) > 0:
-        result = pd.merge(sold_stats, no_sale_stats, on="team", how="outer").fillna(0)
-    elif len(sold_stats) > 0:
-        result = sold_stats.copy()
-        result["no_sale_calls"] = 0
-    elif len(no_sale_stats) > 0:
-        result = no_sale_stats.copy()
-        result["sales"] = 0
-        result["amount"] = 0
-    else:
-        return pd.DataFrame(columns=["team", "calls", "sales", "conversion_pct", "amount"])
+    all_teams = set()
+    for df in [sold_stats, all_sold_calls, no_sale_stats]:
+        if len(df) > 0 and "team" in df.columns:
+            all_teams.update(df["team"].tolist())
+    
+    result = pd.DataFrame({"team": list(all_teams)})
+    result = result.merge(sold_stats, on="team", how="left")
+    result = result.merge(all_sold_calls, on="team", how="left")
+    result = result.merge(no_sale_stats, on="team", how="left")
+    result = result.fillna(0)
     
     # ─── Calculations ───
-    result["calls"] = result["sales"] + result["no_sale_calls"]
+    result["calls"] = result["sold_calls"] + result["no_sale_calls"]
+    result["sales"] = result["sales"].astype(int)
+    result["calls"] = result["calls"].astype(int)
     
     result["conversion_pct"] = (
         result["sales"] / result["calls"] * 100
@@ -99,16 +131,19 @@ def team_performance(sold_df, no_sale_df):
 
 # ─────────────── Dialer Performance ───────────────
 def dialer_performance(sold_df, no_sale_df):
-    """Dialer-wise performance"""
+    """Dialer-wise performance — same logic"""
     if (sold_df is None or len(sold_df) == 0) and (no_sale_df is None or len(no_sale_df) == 0):
         return pd.DataFrame(columns=["dialer", "calls", "sales", "conversion_pct", "amount"])
     
-    # ─── Sold stats ───
+    sold_primary = get_primary_sales(sold_df)
+    
+    # Sold stats
     sold_stats = pd.DataFrame()
-    if sold_df is not None and len(sold_df) > 0 and "dialer" in sold_df.columns:
-        df = sold_df.copy()
-        if "amount" in df.columns:
-            df["_amount_num"] = to_numeric_safe(df["amount"])
+    if sold_primary is not None and len(sold_primary) > 0 and "dialer" in sold_primary.columns:
+        df = sold_primary.copy()
+        amount_col = get_amount_column(df)
+        if amount_col:
+            df["_amount_num"] = to_numeric_safe(df[amount_col])
         else:
             df["_amount_num"] = 0
         
@@ -117,27 +152,31 @@ def dialer_performance(sold_df, no_sale_df):
             amount=("_amount_num", "sum"),
         ).reset_index()
     
-    # ─── No-sale stats ───
+    # All sold calls
+    all_sold_calls = pd.DataFrame()
+    if sold_df is not None and len(sold_df) > 0 and "dialer" in sold_df.columns:
+        all_sold_calls = sold_df.groupby("dialer").size().reset_index(name="sold_calls")
+    
+    # No-sale
     no_sale_stats = pd.DataFrame()
     if no_sale_df is not None and len(no_sale_df) > 0 and "dialer" in no_sale_df.columns:
-        no_sale_stats = no_sale_df.groupby("dialer").agg(
-            no_sale_calls=("dialer", "count"),
-        ).reset_index()
+        no_sale_stats = no_sale_df.groupby("dialer").size().reset_index(name="no_sale_calls")
     
-    # ─── Merge ───
-    if len(sold_stats) > 0 and len(no_sale_stats) > 0:
-        result = pd.merge(sold_stats, no_sale_stats, on="dialer", how="outer").fillna(0)
-    elif len(sold_stats) > 0:
-        result = sold_stats.copy()
-        result["no_sale_calls"] = 0
-    elif len(no_sale_stats) > 0:
-        result = no_sale_stats.copy()
-        result["sales"] = 0
-        result["amount"] = 0
-    else:
-        return pd.DataFrame(columns=["dialer", "calls", "sales", "conversion_pct", "amount"])
+    # Merge
+    all_dialers = set()
+    for df in [sold_stats, all_sold_calls, no_sale_stats]:
+        if len(df) > 0 and "dialer" in df.columns:
+            all_dialers.update(df["dialer"].tolist())
     
-    result["calls"] = result["sales"] + result["no_sale_calls"]
+    result = pd.DataFrame({"dialer": list(all_dialers)})
+    result = result.merge(sold_stats, on="dialer", how="left")
+    result = result.merge(all_sold_calls, on="dialer", how="left")
+    result = result.merge(no_sale_stats, on="dialer", how="left")
+    result = result.fillna(0)
+    
+    result["calls"] = result["sold_calls"] + result["no_sale_calls"]
+    result["sales"] = result["sales"].astype(int)
+    result["calls"] = result["calls"].astype(int)
     
     result["conversion_pct"] = (
         result["sales"] / result["calls"] * 100
@@ -153,24 +192,32 @@ def dialer_performance(sold_df, no_sale_df):
 
 # ─────────────── Overall Stats ───────────────
 def overall_stats(sold_df, no_sale_df, orphan_df):
-    """Overall summary — sab kuch safe"""
+    """
+    Overall summary.
+    Sales count = sirf primary sales (duplicate remove).
+    """
+    sold_primary = get_primary_sales(sold_df)
     
     sold_len = len(sold_df) if sold_df is not None else 0
+    sold_primary_len = len(sold_primary) if sold_primary is not None else 0
     no_sale_len = len(no_sale_df) if no_sale_df is not None else 0
     orphan_len = len(orphan_df) if orphan_df is not None else 0
     
     total_calls = sold_len + no_sale_len
-    total_sales = sold_len
+    total_sales = sold_primary_len
     conversion = (total_sales / total_calls * 100) if total_calls > 0 else 0
     
-    # Amount safely calculate karo
+    # Amount sirf primary sales se
     total_amount = 0
-    if sold_df is not None and len(sold_df) > 0 and "amount" in sold_df.columns:
-        total_amount = safe_sum(sold_df["amount"])
+    if sold_primary is not None and len(sold_primary) > 0:
+        amount_col = get_amount_column(sold_primary)
+        if amount_col:
+            total_amount = safe_sum(sold_primary[amount_col])
     
     return {
         "total_calls": total_calls,
         "total_sales": total_sales,
+        "total_sold_calls": sold_len,
         "total_no_sale": no_sale_len,
         "total_orphan": orphan_len,
         "conversion_pct": round(conversion, 2),

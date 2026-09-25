@@ -20,24 +20,19 @@ def clean_phone(phone):
     if pd.isna(phone):
         return None
     
-    # String banao aur saare non-digit characters hatao
     s = str(phone).strip()
     digits = re.sub(r"\D", "", s)
     
     if not digits:
         return None
     
-    # Pakistan format ke liye normalize karo
-    # Agar +92 se shuru ho
+    # Pakistan format normalize
     if digits.startswith("92") and len(digits) >= 12:
         digits = "0" + digits[2:]
-    # Agar 3 se shuru ho (10 digits)
     elif len(digits) == 10 and digits.startswith("3"):
         digits = "0" + digits
-    # Agar 03 se shuru ho (11 digits) — already sahi
     elif len(digits) == 11 and digits.startswith("03"):
-        pass  # theek hai
-    # Warna jaise hai waise chhor do
+        pass
     
     return digits
 
@@ -53,13 +48,10 @@ def find_column(df, candidates):
     """
     DataFrame mein ek column dhoondo jo candidates mein se koi naam match kare.
     Case-insensitive, spaces/dashes ignore.
-    
-    Returns: Column ka actual naam, ya None
     """
     if not candidates:
         return None
     
-    # Normalize karke compare karo
     def norm(s):
         return re.sub(r"[\s_\-]+", "", str(s).lower().strip())
     
@@ -76,7 +68,6 @@ def find_column(df, candidates):
 def detect_columns(df, config_columns):
     """
     Config ke hisaab se DataFrame ke columns detect karo.
-    
     Returns: dict {standard_name: actual_column_name}
     """
     mapping = {}
@@ -89,7 +80,10 @@ def detect_columns(df, config_columns):
 
 # ─────────────── Number Cleaning ───────────────
 def clean_number(value):
-    """Text ko number mein convert karo. 'N/A', '', khali → None"""
+    """
+    Text ko number mein convert karo.
+    Handles: '7$', '$7', '1,234.50', 'PKR 500', 'N/A', '', etc.
+    """
     if pd.isna(value):
         return None
     
@@ -97,12 +91,12 @@ def clean_number(value):
     if not s or s.lower() in ("n/a", "na", "null", "none", "-", "--"):
         return None
     
-    # Commas hatao (1,234 → 1234)
+    # Commas hatao
     s = s.replace(",", "")
-    # Currency symbols hatao
+    # Currency symbols aur text hatao (sirf digits, dot, minus rakho)
     s = re.sub(r"[^\d.\-]", "", s)
     
-    if not s:
+    if not s or s in (".", "-", "-."):
         return None
     
     try:
