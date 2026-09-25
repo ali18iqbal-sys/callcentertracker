@@ -34,7 +34,7 @@ def normalize_single_file(df, col_config, source_name):
     # Source tracking
     normalized["_source_file"] = source_name
     
-    # Extra columns bhi rakho (jo standard nahi hain) — prefixed
+    # Extra Columns bhi rakho (jo standard nahi hain) — prefixed
     standard_actuals = set(mapping.values())
     for col in df.columns:
         if col not in standard_actuals and not col.startswith("_"):
@@ -80,7 +80,7 @@ def process_uploaded_files(files, side_key, col_config):
 
 def render():
     st.title("📥 Upload Data")
-    st.caption("Ek ya zyada files upload karein — sab auto-combine ho jayengi")
+    st.caption("Upload one or more files — they will be auto-combined")
     
     st.divider()
     
@@ -91,10 +91,10 @@ def render():
     # ═══ CLIENT UPLOAD ═══
     with col1:
         st.subheader("🏢 Client Data (Sales)")
-        st.caption("Ek ya zyada files — Google Sheet / XLSX / CSV / JSON")
+        st.caption("One or more files — Google Sheet / XLSX / CSV / JSON")
         
         client_files = st.file_uploader(
-            "Client files choose karein",
+            "Choose client files",
             type=["xlsx", "xls", "csv", "json"],
             accept_multiple_files=True,
             key="client_uploader",
@@ -109,7 +109,7 @@ def render():
                 st.success(f"✅ {count} file(s) loaded — Total: {total} rows")
                 
                 if errors:
-                    with st.expander(f"⚠️ {len(errors)} file(s) skip hui"):
+                    with st.expander(f"⚠️ {len(errors)} file(s) skipped"):
                         for err in errors:
                             st.warning(err)
                 
@@ -117,31 +117,31 @@ def render():
                     for i, fname in enumerate(st.session_state["client_files"], 1):
                         st.write(f"{i}. `{fname}`")
                 
-                with st.expander("👁️ Preview (pehli 5 rows)"):
+                with st.expander("👁️ Preview (first 5 rows)"):
                     st.dataframe(combined.head(5), use_container_width=True)
                 
                 with st.expander("📋 Columns"):
-                    st.write("**Standard columns:**")
+                    st.write("**Standard Columns:**")
                     std_cols = [c for c in combined.columns if not c.startswith("extra_") and not c.startswith("_")]
                     st.write(std_cols)
                     
                     extra_cols = [c for c in combined.columns if c.startswith("extra_")]
                     if extra_cols:
-                        st.write("**Extra columns:**")
+                        st.write("**Extra Columns:**")
                         st.write(extra_cols)
         
         elif st.session_state.get("client_dfs"):
             count = len(st.session_state["client_dfs"])
             total = sum(len(d) for d in st.session_state["client_dfs"])
-            st.info(f"📁 Pehle se loaded: {count} file(s), {total} rows")
+            st.info(f"📁 Already loaded: {count} file(s), {total} rows")
     
     # ═══ CC UPLOAD ═══
     with col2:
         st.subheader("📞 Call Center Data (Calls)")
-        st.caption("Ek ya zyada files (team-wise bhi ho sakti hain)")
+        st.caption("One or more files (can be team-wise)")
         
         cc_files = st.file_uploader(
-            "Call Center files choose karein",
+            "Choose call center files",
             type=["xlsx", "xls", "csv", "json"],
             accept_multiple_files=True,
             key="cc_uploader",
@@ -156,7 +156,7 @@ def render():
                 st.success(f"✅ {count} file(s) loaded — Total: {total} rows")
                 
                 if errors:
-                    with st.expander(f"⚠️ {len(errors)} file(s) skip hui"):
+                    with st.expander(f"⚠️ {len(errors)} file(s) skipped"):
                         for err in errors:
                             st.warning(err)
                 
@@ -164,18 +164,18 @@ def render():
                     for i, fname in enumerate(st.session_state["cc_files"], 1):
                         st.write(f"{i}. `{fname}`")
                 
-                with st.expander("👁️ Preview (pehli 5 rows)"):
+                with st.expander("👁️ Preview (first 5 rows)"):
                     st.dataframe(combined.head(5), use_container_width=True)
                 
                 with st.expander("📋 Columns"):
                     std_cols = [c for c in combined.columns if not c.startswith("extra_") and not c.startswith("_")]
-                    st.write("**Standard columns:**")
+                    st.write("**Standard Columns:**")
                     st.write(std_cols)
         
         elif st.session_state.get("cc_dfs"):
             count = len(st.session_state["cc_dfs"])
             total = sum(len(d) for d in st.session_state["cc_dfs"])
-            st.info(f"📁 Pehle se loaded: {count} file(s), {total} rows")
+            st.info(f"📁 Already loaded: {count} file(s), {total} rows")
     
     st.divider()
     
@@ -190,7 +190,7 @@ def render():
         )
     
     if not has_both_files():
-        st.info("ℹ️ Dono taraf kam az kam ek file upload karein.")
+        st.info("ℹ️ Upload at least one file on both sides.")
     
     # ═══ MERGE PROCESS ═══
     if merge_clicked and has_both_files():
@@ -201,10 +201,10 @@ def render():
                 
                 # Phone column already standard hai (normalize_single_file se)
                 if "phone" not in client_df.columns:
-                    st.error("❌ Client data mein phone column nahi mila")
+                    st.error("❌ Phone column not found in client data")
                     st.stop()
                 if "phone" not in cc_df.columns:
-                    st.error("❌ CC data mein phone column nahi mila")
+                    st.error("❌ Phone column not found in CC data")
                     st.stop()
                 
                 # Filter: price = 0, khali, negative → skip
@@ -218,19 +218,19 @@ def render():
                     ].copy()
                     filtered = before - len(client_df)
                     if filtered > 0:
-                        st.info(f"ℹ️ {filtered} rows filter out (price khali/0/negative)")
+                        st.info(f"ℹ️ {filtered} rows filtered out (price empty/0/negative)")
                 
                 # Match
                 result = match_data(client_df, cc_df)
                 st.session_state["merge_result"] = result
                 
-                st.success("✅ Merge complete! Left sidebar se **Results** kholein")
+                st.success("✅ Merge complete! From the left sidebar, open **Results** open")
                 st.balloons()
                 
             except Exception as e:
-                st.error(f"❌ Merge error: {e}")
+                st.error(f"❌ Merge Error: {e}")
                 import traceback
-                with st.expander("🔍 Error details"):
+                with st.expander("🔍 Error Details"):
                     st.code(traceback.format_exc())
     
     # ═══ SUMMARY ═══

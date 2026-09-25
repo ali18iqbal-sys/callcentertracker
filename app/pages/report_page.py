@@ -55,11 +55,11 @@ def get_all_data():
 
 def render():
     st.title("📊 Custom Report Builder")
-    st.caption("Apni calculation banayein, filter lagayein, report download karein")
+    st.caption("Build your own calculation, apply filters, download report")
     
     if not has_result():
-        st.warning("⚠️ Pehle upload aur merge karein")
-        st.info("👉 Left sidebar se **Upload** page kholein")
+        st.warning("⚠️ Please upload and merge first")
+        st.info("👉 From the left sidebar, open **Upload** page open")
         return
     
     # ═══ DATA LOAD ═══
@@ -88,23 +88,23 @@ def render():
         date_columns = [c for c in df.columns if "date" in c.lower()]
         
         if date_columns:
-            date_col = st.selectbox("Date column", date_columns, key="date_col_select")
+            date_col = st.selectbox("Date Column", date_columns, key="date_col_select")
             
             # Default: last 30 days
             default_start = date.today() - timedelta(days=30)
             default_end = date.today()
             
             date_range = st.date_input(
-                "Date range",
+                "Date Range",
                 value=(default_start, default_end),
                 key="date_range_input",
             )
             
-            use_date_filter = st.checkbox("Date filter lagayein", value=False, key="use_date_filter")
+            use_date_filter = st.checkbox("Apply date filter", value=False, key="use_date_filter")
         else:
             date_col = None
             use_date_filter = False
-            st.info("Koi date column nahi mila")
+            st.info("No date column found")
     
     # Status filter
     with col2:
@@ -136,7 +136,7 @@ def render():
     st.subheader("🧮 Custom Calculation")
     st.caption("Naya column banao — Column A + Operation + Column B")
     
-    with st.expander("➕ Naya calculated column add karein", expanded=False):
+    with st.expander("➕ Add new calculated column", expanded=False):
         c1, c2, c3, c4 = st.columns([2, 1, 2, 2])
         
         with c1:
@@ -157,16 +157,16 @@ def render():
                 col_b = st.selectbox("Column B", numeric_cols, key="calc_col_b")
             else:
                 col_b = None
-                st.caption("(Column B zaroori nahi)")
+                st.caption("(Column B not required)")
         
         with c4:
-            output_name = st.text_input("Output column name", value="calculated", key="calc_output_name")
+            output_name = st.text_input("Output Column Name", value="calculated", key="calc_output_name")
         
         if st.button("🧮 Apply Calculation", key="apply_calc_btn"):
             try:
                 filtered_df = apply_calculation(filtered_df, col_a, operation, col_b, output_name)
                 st.session_state["report_filtered_df"] = filtered_df
-                st.success(f"✅ Calculated column '{output_name}' add ho gaya")
+                st.success(f"✅ Calculated column '{output_name}' added successfully")
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Error: {e}")
@@ -174,9 +174,9 @@ def render():
     # Agar pehle calculation ho chuki hai
     if "report_filtered_df" in st.session_state and st.session_state["report_filtered_df"] is not None:
         filtered_df = st.session_state["report_filtered_df"]
-        st.info(f"ℹ️ Calculated column active hai — total columns: {len(filtered_df.columns)}")
+        st.info(f"ℹ️ Calculated column is active — total columns: {len(filtered_df.columns)}")
         
-        if st.button("🔄 Calculated columns reset karein", key="reset_calc_btn"):
+        if st.button("🔄 Reset Calculated Columns", key="reset_calc_btn"):
             st.session_state["report_filtered_df"] = None
             st.rerun()
     
@@ -188,14 +188,14 @@ def render():
     c1, c2, c3 = st.columns(3)
     
     with c1:
-        group_options = ["(Koi grouping nahi)"] + categorical_cols
-        group_by = st.selectbox("Group by", group_options, key="group_by_select")
-        group_by = None if group_by == "(Koi grouping nahi)" else group_by
+        group_options = ["((No Grouping))"] + categorical_cols
+        group_by = st.selectbox("Group By", group_options, key="group_by_select")
+        group_by = None if group_by == "((No Grouping))" else group_by
     
     with c2:
-        metric_options = ["(Sirf count)"] + numeric_cols
-        metric_col = st.selectbox("Metric column", metric_options, key="metric_col_select")
-        metric_col = None if metric_col == "(Sirf count)" else metric_col
+        metric_options = ["((Count Only))"] + numeric_cols
+        metric_col = st.selectbox("Metric Column", metric_options, key="metric_col_select")
+        metric_col = None if metric_col == "((Count Only))" else metric_col
     
     with c3:
         aggregation = st.selectbox(
@@ -205,7 +205,7 @@ def render():
             key="aggregation_select",
         )
     
-    if st.button("📊 Report Generate Karein", type="primary", key="gen_report_btn"):
+    if st.button("📊 Generate Report", type="primary", key="gen_report_btn"):
         try:
             report_df = generate_report(
                 filtered_df,
@@ -215,7 +215,7 @@ def render():
             )
             
             if len(report_df) == 0:
-                st.warning("Koi data nahi mila")
+                st.warning("No data found")
             else:
                 st.subheader("📋 Report Result")
                 st.dataframe(report_df, use_container_width=True, hide_index=True)
@@ -238,7 +238,7 @@ def render():
                         st.bar_chart(chart_data.set_index(report_df.columns[0])[chart_col])
         
         except Exception as e:
-            st.error(f"❌ Report error: {e}")
+            st.error(f"❌ Report Error: {e}")
     
     st.divider()
     
@@ -255,10 +255,10 @@ def render():
     
     # ─── B) Numeric Columns Summary ───
     st.markdown("**📊 Numeric Columns Summary**")
-    st.caption("Sirf metric columns (phone/ID skip ho gaye)")
+    st.caption("Only metric columns (phone/ID excluded)")
     
     selected_metrics = st.multiselect(
-        "Columns select karein",
+        "Select columns",
         numeric_cols,
         default=numeric_cols[:min(5, len(numeric_cols))],
         key="summary_metrics_select",
@@ -276,7 +276,7 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Koi valid numeric column nahi mila")
+            st.info("No valid numeric columns found")
     
     # ═══ SECTION 5: RAW DATA PREVIEW ═══
     with st.expander("👁️ Filtered Data Preview (full)"):

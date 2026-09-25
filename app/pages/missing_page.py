@@ -19,8 +19,8 @@ def render():
     st.title("⚠️ Missing / Mismatch Report")
     
     if not has_result():
-        st.warning("⚠️ Pehle upload aur merge karein")
-        st.info("👉 Left sidebar se **Upload** page kholein")
+        st.warning("⚠️ Please upload and merge first")
+        st.info("👉 From the left sidebar, open **Upload** page open")
         return
     
     result = st.session_state["merge_result"]
@@ -28,14 +28,14 @@ def render():
     no_sale = result["no_sale"]
     orphan = result["orphan"]
     
-    st.caption("Yeh report dikhati hai ke kahan data match nahi hua")
+    st.caption("This report shows where data did not match")
     st.divider()
     
     # ═══ SUMMARY ═══
     c1, c2, c3 = st.columns(3)
     c1.metric("✅ Sold (Matched)", len(sold))
-    c2.metric("❌ No-Sale (CC only)", len(no_sale))
-    c3.metric("⚠️ Orphan (Client only)", len(orphan))
+    c2.metric("❌ No-Sale (CC Only)", len(no_sale))
+    c3.metric("⚠️ Orphan (Client Only)", len(orphan))
     
     st.divider()
     
@@ -48,10 +48,10 @@ def render():
     # ─── ORPHAN ───
     with tab1:
         st.subheader("⚠️ Orphan Sales")
-        st.caption("Client sheet mein hai, lekin Call Center ki file mein call nahi mili")
+        st.caption("Present in client sheet but no matching call in Call Center file")
         
         if len(orphan) > 0:
-            st.warning(f"**{len(orphan)}** phone # client mein hain lekin CC ki file mein nahi mile")
+            st.warning(f"**{len(orphan)}** phone numbers in client but not found in CC file")
             
             st.dataframe(orphan, use_container_width=True, height=400)
             
@@ -66,13 +66,13 @@ def render():
                 )
             
             st.info("""
-            **Possible reasons:**
-            - CC ki file adhoori hai (kuch dialers ka data missing)
-            - Phone # ka format alag hai (auto-fix ho chuka hai)
-            - Client ne ghalat phone # bheja
+            **Possible Reasons:**
+            - CC file is incomplete (some dialers' data missing)
+            - Phone # format differs (auto-fix applied)
+            - Client sent wrong phone #
             """)
         else:
-            st.success("✅ Koi orphan record nahi — sab client phones CC mein mile")
+            st.success("✅ No orphan records — all client phones found in CC")
     
     # ─── NO-SALE ───
     with tab2:
@@ -80,7 +80,7 @@ def render():
         st.caption("Call Center ne call ki, lekin us phone # par sale nahi hui")
         
         if len(no_sale) > 0:
-            st.warning(f"**{len(no_sale)}** calls jinke against sale nahi hui")
+            st.warning(f"**{len(no_sale)}** calls with no sale")
             
             st.dataframe(no_sale, use_container_width=True, height=400)
             
@@ -92,8 +92,8 @@ def render():
             )
             
             st.info("""
-            **Yeh calls valid hain** — sirf in par sale nahi hui.
+            **These calls are valid** — sirf in par sale nahi hui.
             Team/Dialer performance mein yeh "effort without sale" hain.
             """)
         else:
-            st.success("✅ Koi no-sale call nahi — sab calls par sale hui!")
+            st.success("✅ No no-sale calls — all calls resulted in sales!")

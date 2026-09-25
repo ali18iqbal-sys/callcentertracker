@@ -88,8 +88,8 @@ with st.sidebar:
     authenticator.logout("Logout", "sidebar", key="logout_btn")
 
     st.divider()
-    st.caption("Auto-Fetch ready")
-    st.caption("Phase 7 - Deployment aage aayega")
+    st.caption("Auto-Fetch Ready")
+    st.caption("Phase 7 - Deployment coming next")
 
 # --- Route to Page ---
 if page == "Upload":

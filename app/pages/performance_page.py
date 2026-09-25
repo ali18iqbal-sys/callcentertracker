@@ -20,8 +20,8 @@ def render():
     st.title("📈 Performance Dashboard")
     
     if not has_result():
-        st.warning("⚠️ Pehle upload aur merge karein")
-        st.info("👉 Left sidebar se **Upload** page kholein")
+        st.warning("⚠️ Please upload and merge first")
+        st.info("👉 From the left sidebar, open **Upload** page open")
         return
     
     result = st.session_state["merge_result"]
@@ -49,7 +49,7 @@ def render():
         team_df = team_performance(sold, no_sale)
         
         if len(team_df) > 0:
-            st.caption("Team-wise performance (amount ke hisaab se sorted)")
+            st.caption("Team-wise performance (sorted by amount)")
             st.dataframe(
                 team_df,
                 use_container_width=True,
@@ -75,14 +75,14 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Team data nahi mila — CC file mein 'Team' column hona chahiye")
+            st.info("Team data not found — CC file must have a 'Team' column")
     
     # ─── DIALER ───
     with tab2:
         dialer_df = dialer_performance(sold, no_sale)
         
         if len(dialer_df) > 0:
-            st.caption("Dialer-wise performance (amount ke hisaab se sorted)")
+            st.caption("Dialer-wise performance (sorted by amount)")
             st.dataframe(
                 dialer_df,
                 use_container_width=True,
@@ -107,4 +107,4 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Dialer data nahi mila — CC file mein 'Dialer' column hona chahiye")
+            st.info("Dialer data not found — CC file must have a 'Dialer' column")

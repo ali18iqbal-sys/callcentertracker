@@ -20,7 +20,7 @@ def add_to_session(df, source_type, source_name):
 
 def render():
     st.title("Auto Data Sources")
-    st.caption("Google Sheet ya API se direct data fetch karein")
+    st.caption("Fetch data directly from Google Sheet or API")
     st.divider()
     
     tab1, tab2 = st.tabs(["Google Sheets", "APIs"])
@@ -40,7 +40,7 @@ def render():
         count = len(st.session_state.get("cc_dfs", []))
         rows = sum(len(d) for d in st.session_state.get("cc_dfs", []))
         st.metric("Call Center Data", f"{count} file(s)", f"{rows} rows")
-    st.info("Fetch ke baad Upload page par jayein aur Merge button dabayein")
+    st.info("After fetching, go to Upload page and click Merge")
 
 
 def render_gsheets():
@@ -62,10 +62,10 @@ def render_gsheets():
                         delete_source("google_sheets", i)
                         st.rerun()
     else:
-        st.info("Koi Google Sheet source add nahi kiya")
+        st.info("No Google Sheet source added")
     
     st.divider()
-    with st.expander("Add Naya Google Sheet", expanded=False):
+    with st.expander("Add New Google Sheet", expanded=False):
         with st.form("add_gsheet", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -80,10 +80,10 @@ def render_gsheets():
             if st.form_submit_button("Add Source", type="primary", use_container_width=True):
                 if name and url:
                     add_gsheet(name, url, source_type, sheet_name, cred_file)
-                    st.success(f"{name} add ho gaya")
+                    st.success(f"{name} added successfully")
                     st.rerun()
                 else:
-                    st.error("Name aur URL zaroori hain")
+                    st.error("Name and URL are required")
     
     with st.expander("Service Account Setup Guide"):
         st.markdown("""
@@ -102,7 +102,7 @@ def render_gsheets():
 - Isay `creds/service_account.json` mein save karein
 
 **Step 5** - Service account ka email copy karein
-- Client ki Google Sheet kholein > Share
+- Client ki Google Sheet open > Share
 - Email add karein > Viewer access dein
 - Done!
 """)
@@ -117,11 +117,11 @@ def fetch_gsheet_now(src):
                 sheet_name=src.get("sheet_name") or None,
             )
             add_to_session(df, src["type"], src["name"])
-            st.success(f"{len(df)} rows fetch hue")
+            st.success(f"{len(df)} rows fetched")
             with st.expander("Preview"):
                 st.dataframe(df.head(5), use_container_width=True)
     except FileNotFoundError:
-        st.error(f"Credentials file nahi mili: {src['credential_file']}")
+        st.error(f"Credentials file not found: {src['credential_file']}")
     except Exception as e:
         st.error(f"Error: {str(e)[:300]}")
 
@@ -147,10 +147,10 @@ def render_apis():
                         delete_source("apis", i)
                         st.rerun()
     else:
-        st.info("Koi API source add nahi kiya")
+        st.info("No API source added")
     
     st.divider()
-    with st.expander("Add Naya API Source", expanded=False):
+    with st.expander("Add New API Source", expanded=False):
         with st.form("add_api", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -168,10 +168,10 @@ def render_apis():
             if st.form_submit_button("Add Source", type="primary", use_container_width=True):
                 if name and url:
                     add_api(name, url, source_type, auth_type, auth_value, json_path)
-                    st.success(f"{name} add ho gaya")
+                    st.success(f"{name} added successfully")
                     st.rerun()
                 else:
-                    st.error("Name aur URL zaroori hain")
+                    st.error("Name and URL are required")
     
     with st.expander("Test API Example"):
         st.markdown("""
@@ -197,7 +197,7 @@ def fetch_api_now(src):
                 json_path=src.get("json_path") or None,
             )
             add_to_session(df, src["type"], src["name"])
-            st.success(f"{len(df)} rows fetch hue")
+            st.success(f"{len(df)} rows fetched")
             with st.expander("Preview"):
                 st.dataframe(df.head(5), use_container_width=True)
     except Exception as e:

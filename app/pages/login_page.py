@@ -42,6 +42,6 @@ def render(authenticator):
         auth_status = st.session_state.get("authentication_status")
         
         if auth_status is False:
-            st.error("❌ Username ya password ghalat hai")
+            st.error("❌ Invalid username or password")
         elif auth_status is None:
             st.caption("Demo credentials: **admin / admin123**")

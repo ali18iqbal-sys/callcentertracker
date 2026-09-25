@@ -23,11 +23,11 @@ def render():
     
     # Guard: sirf master access kar sakta hai
     if not user or user.get("role") != "master":
-        st.error("❌ Sirf Master role wale hi is page ko access kar sakte hain")
+        st.error("❌ Only Master role users can access this page")
         st.stop()
     
     st.title("👑 Master Panel")
-    st.caption("Users manage karein — add, edit, disable, password change")
+    st.caption("Manage users — add, edit, disable, change password")
     
     st.divider()
     
@@ -57,7 +57,7 @@ def render():
             
             # Select user
             usernames = [u["username"] for u in users]
-            selected = st.selectbox("User choose karein", usernames, key="user_actions_select")
+            selected = st.selectbox("Choose user", usernames, key="user_actions_select")
             
             if selected:
                 selected_info = next(u for u in users if u["username"] == selected)
@@ -67,13 +67,13 @@ def render():
                 # Toggle disable/enable
                 with col1:
                     if selected_info["disabled"]:
-                        if st.button("✅ Enable Karo", key="enable_btn", use_container_width=True):
+                        if st.button("✅ Enable", key="enable_btn", use_container_width=True):
                             ok, msg = toggle_user_disabled(selected)
                             if ok:
                                 st.success(msg)
                                 st.rerun()
                     else:
-                        if st.button("⏸️ Disable Karo", key="disable_btn", use_container_width=True):
+                        if st.button("⏸️ Disable", key="disable_btn", use_container_width=True):
                             ok, msg = toggle_user_disabled(selected)
                             if ok:
                                 st.success(msg)
@@ -82,7 +82,7 @@ def render():
                 # Edit role
                 with col2:
                     new_role = st.selectbox(
-                        "Role badlo",
+                        "Change Role",
                         ["user", "master"],
                         index=0 if selected_info["role"] == "user" else 1,
                         key="role_change",
@@ -97,7 +97,7 @@ def render():
                 # Delete user
                 with col3:
                     if selected != "admin":
-                        if st.button("🗑️ Delete Karo", key="delete_btn", use_container_width=True):
+                        if st.button("🗑️ Delete", key="delete_btn", use_container_width=True):
                             ok, msg = delete_user(selected)
                             if ok:
                                 st.success(msg)
@@ -105,13 +105,13 @@ def render():
                             else:
                                 st.error(msg)
                     else:
-                        st.caption("(admin delete nahi ho sakta)")
+                        st.caption("((admin cannot be deleted))")
         else:
-            st.info("Koi user nahi mila")
+            st.info("No users found")
     
     # ─────────── TAB 2: ADD USER ───────────
     with tab2:
-        st.subheader("➕ Naya User Add Karein")
+        st.subheader("➕ Add New User")
         
         with st.form("add_user_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -132,13 +132,13 @@ def render():
             if submit:
                 # Validation
                 if not new_username or not new_password:
-                    st.error("❌ Username aur Password zaroori hain")
+                    st.error("❌ Username and Password are required")
                 elif len(new_password) < 6:
-                    st.error("❌ Password kam az kam 6 characters ka hona chahiye")
+                    st.error("❌ Password must be at least 6 characters")
                 elif new_password != new_password_confirm:
-                    st.error("❌ Dono passwords match nahi kar rahe")
+                    st.error("❌ Passwords do not match")
                 elif " " in new_username:
-                    st.error("❌ Username mein space nahi ho sakta")
+                    st.error("❌ Username cannot contain spaces")
                 else:
                     ok, msg = add_user(
                         username=new_username.strip().lower(),
@@ -155,26 +155,26 @@ def render():
     
     # ─────────── TAB 3: CHANGE PASSWORD ───────────
     with tab3:
-        st.subheader("🔑 Password Change Karein")
+        st.subheader("🔑 Change Password")
         
         users = list_users()
         usernames = [u["username"] for u in users]
         
-        selected_pw_user = st.selectbox("User choose karein", usernames, key="pw_change_select")
+        selected_pw_user = st.selectbox("Choose user", usernames, key="pw_change_select")
         
         with st.form("change_pw_form", clear_on_submit=True):
-            new_pw = st.text_input("Naya Password *", type="password")
-            new_pw_confirm = st.text_input("Confirm Naya Password *", type="password")
+            new_pw = st.text_input("New Password *", type="password")
+            new_pw_confirm = st.text_input("Confirm New Password *", type="password")
             
             submit_pw = st.form_submit_button("💾 Change Password", type="primary", use_container_width=True)
             
             if submit_pw:
                 if not new_pw:
-                    st.error("❌ Password zaroori hai")
+                    st.error("❌ Password is required")
                 elif len(new_pw) < 6:
-                    st.error("❌ Password kam az kam 6 characters ka hona chahiye")
+                    st.error("❌ Password must be at least 6 characters")
                 elif new_pw != new_pw_confirm:
-                    st.error("❌ Dono passwords match nahi kar rahe")
+                    st.error("❌ Passwords do not match")
                 else:
                     ok, msg = change_password(selected_pw_user, new_pw)
                     if ok:

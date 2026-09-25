@@ -20,8 +20,8 @@ def render():
     st.title("📊 Merge Results")
     
     if not has_result():
-        st.warning("⚠️ Pehle upload aur merge karein")
-        st.info("👉 Left sidebar se **Upload** page kholein")
+        st.warning("⚠️ Please upload and merge first")
+        st.info("👉 From the left sidebar, open **Upload** page open")
         return
     
     result = st.session_state["merge_result"]
@@ -33,9 +33,9 @@ def render():
     # ═══ SUMMARY CARDS ═══
     st.subheader("📋 Summary")
     c1, c2, c3 = st.columns(3)
-    c1.metric("✅ Sold (matched)", summary["sold_rows"])
-    c2.metric("❌ No-Sale (CC only)", summary["no_sale_rows"])
-    c3.metric("⚠️ Orphan (Client only)", summary["orphan_rows"])
+    c1.metric("✅ Sold (Matched)", summary["sold_rows"])
+    c2.metric("❌ No-Sale (CC Only)", summary["no_sale_rows"])
+    c3.metric("⚠️ Orphan (Client Only)", summary["orphan_rows"])
     
     st.divider()
     
@@ -48,7 +48,7 @@ def render():
     
     # ─── SOLD ───
     with tab1:
-        st.caption("Woh calls jinke against sale hui")
+        st.caption("Calls that resulted in a sale")
         if len(sold) > 0:
             st.dataframe(sold, use_container_width=True, height=400)
             st.download_button(
@@ -58,11 +58,11 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Koi sold record nahi")
+            st.info("No sold records")
     
     # ─── NO SALE ───
     with tab2:
-        st.caption("CC mein calls hui lekin client mein sale nahi")
+        st.caption("Calls logged in CC but no sale on client side")
         if len(no_sale) > 0:
             st.dataframe(no_sale, use_container_width=True, height=400)
             st.download_button(
@@ -72,11 +72,11 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Koi no-sale record nahi")
+            st.info("No no-sale records")
     
     # ─── ORPHAN ───
     with tab3:
-        st.caption("Client mein sale hai lekin CC mein call nahi mili")
+        st.caption("Sales on client side but no matching call in CC")
         if len(orphan) > 0:
             st.dataframe(orphan, use_container_width=True, height=400)
             st.download_button(
@@ -86,4 +86,4 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("Koi orphan record nahi")
+            st.info("No orphan records")

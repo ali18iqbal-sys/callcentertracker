@@ -13,7 +13,7 @@ from app.core.targets import (
 
 def render():
     st.title("🎯 Target Setup")
-    st.caption("Daily call targets set karein — monthly target auto calculate hoga")
+    st.caption("Set daily call targets — monthly target will auto-calculate")
     
     st.divider()
     
@@ -32,7 +32,7 @@ def render():
     
     # ═══ DAILY TARGETS ═══
     st.subheader("📅 Daily Call Targets")
-    st.caption("Har din ka call target define karein")
+    st.caption("Define call target for each day type")
     
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -98,12 +98,12 @@ def render():
     
     # ═══ TEAM TARGETS ═══
     st.subheader("👥 Team-wise Targets (Optional)")
-    st.caption("Khali chhorein agar team-wise target nahi chahiye")
+    st.caption("Leave empty if team-wise targets not required")
     
     team_targets = targets.get("team_targets", {}).copy()
     
     num_teams = st.number_input(
-        "Kitni teams hain?",
+        "How many teams?",
         min_value=0, max_value=20,
         value=len(team_targets) if team_targets else 0,
         step=1,
@@ -122,7 +122,7 @@ def render():
             
             with col:
                 team_name = st.text_input(f"Team {i+1} naam", value=default_name, key=f"team_name_{i}")
-                team_val = st.number_input(f"Team target", min_value=0, value=int(default_val), step=50, key=f"team_val_{i}")
+                team_val = st.number_input(f"Team Target", min_value=0, value=int(default_val), step=50, key=f"team_val_{i}")
                 if team_name:
                     new_team_targets[team_name] = team_val
         
@@ -136,7 +136,7 @@ def render():
     dialer_targets = targets.get("dialer_targets", {}).copy()
     
     num_dialers = st.number_input(
-        "Kitne dialers hain?",
+        "How many dialers?",
         min_value=0, max_value=30,
         value=len(dialer_targets) if dialer_targets else 0,
         step=1,
@@ -155,7 +155,7 @@ def render():
             
             with col:
                 dialer_name = st.text_input(f"Dialer {i+1} naam", value=default_name, key=f"dialer_name_{i}")
-                dialer_val = st.number_input(f"Dialer target", min_value=0, value=int(default_val), step=50, key=f"dialer_val_{i}")
+                dialer_val = st.number_input(f"Dialer Target", min_value=0, value=int(default_val), step=50, key=f"dialer_val_{i}")
                 if dialer_name:
                     new_dialer_targets[dialer_name] = dialer_val
         
@@ -173,5 +173,5 @@ def render():
                 "dialer_targets": dialer_targets,
             }
             save_targets(new_targets)
-            st.success("✅ Targets save ho gaye!")
+            st.success("✅ Targets saved successfully!")
             st.balloons()
