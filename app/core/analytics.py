@@ -3,6 +3,8 @@ analytics.py — Performance metrics calculate karne wala module
 Team-wise, Dialer-wise conversion, amounts, dates.
 Revenue aur amount dono handle karta hai.
 Duplicate sales ko 1 baar count karta hai (_is_primary_sale).
+
+⚠️ Har function defensive hai — agar column nahi mila toh crash nahi hoga.
 """
 
 import pandas as pd
@@ -62,22 +64,33 @@ def get_primary_sales(df):
     return df
 
 
+def has_column(df, col):
+    """DataFrame mein column hai ya nahi"""
+    return df is not None and len(df) > 0 and col in df.columns
+
+
 # ─────────────── Team Performance ───────────────
 def team_performance(sold_df, no_sale_df):
     """
     Team-wise performance.
     Sales count = sirf primary sales (duplicate remove)
-    Calls count = saari calls (sold + no_sale)
+    Calls count = saari calls
     """
-    if (sold_df is None or len(sold_df) == 0) and (no_sale_df is None or len(no_sale_df) == 0):
-        return pd.DataFrame(columns=["team", "calls", "sales", "conversion_pct", "amount"])
+    empty_result = pd.DataFrame(columns=["team", "calls", "sales", "conversion_pct", "amount"])
+    
+    # ─── Check: team column exist karta hai? ───
+    sold_has_team = has_column(sold_df, "team")
+    no_sale_has_team = has_column(no_sale_df, "team")
+    
+    if not sold_has_team and not no_sale_has_team:
+        return empty_result
     
     # ─── Primary sales filter ───
     sold_primary = get_primary_sales(sold_df)
     
-    # ─── Sold stats (sirf primary) ───
+    # ─── Sold stats ───
     sold_stats = pd.DataFrame()
-    if sold_primary is not None and len(sold_primary) > 0 and "team" in sold_primary.columns:
+    if has_column(sold_primary, "team"):
         df = sold_primary.copy()
         amount_col = get_amount_column(df)
         if amount_col:
@@ -90,26 +103,37 @@ def team_performance(sold_df, no_sale_df):
             amount=("_amount_num", "sum"),
         ).reset_index()
     
-    # ─── All sold calls (for calls count) ───
+    # ─── All sold calls ───
     all_sold_calls = pd.DataFrame()
-    if sold_df is not None and len(sold_df) > 0 and "team" in sold_df.columns:
+    if has_column(sold_df, "team"):
         all_sold_calls = sold_df.groupby("team").size().reset_index(name="sold_calls")
     
     # ─── No-sale stats ───
     no_sale_stats = pd.DataFrame()
-    if no_sale_df is not None and len(no_sale_df) > 0 and "team" in no_sale_df.columns:
+    if has_column(no_sale_df, "team"):
         no_sale_stats = no_sale_df.groupby("team").size().reset_index(name="no_sale_calls")
     
-    # ─── Merge ───
+    # ─── All teams ───
     all_teams = set()
     for df in [sold_stats, all_sold_calls, no_sale_stats]:
         if len(df) > 0 and "team" in df.columns:
-            all_teams.update(df["team"].tolist())
+            all_teams.update(df["team"].dropna().tolist())
+    
+    if not all_teams:
+        return empty_result
     
     result = pd.DataFrame({"team": list(all_teams)})
-    result = result.merge(sold_stats, on="team", how="left")
-    result = result.merge(all_sold_calls, on="team", how="left")
-    result = result.merge(no_sale_stats, on="team", how="left")
+    
+    # Merge (safe)
+    for df in [sold_stats, all_sold_calls, no_sale_stats]:
+        if len(df) > 0 and "team" in df.columns:
+            result = result.merge(df, on="team", how="left")
+    
+    # Ensure columns exist
+    for col in ["sales", "amount", "sold_calls", "no_sale_calls"]:
+        if col not in result.columns:
+            result[col] = 0
+    
     result = result.fillna(0)
     
     # ─── Calculations ───
@@ -132,14 +156,19 @@ def team_performance(sold_df, no_sale_df):
 # ─────────────── Dialer Performance ───────────────
 def dialer_performance(sold_df, no_sale_df):
     """Dialer-wise performance — same logic"""
-    if (sold_df is None or len(sold_df) == 0) and (no_sale_df is None or len(no_sale_df) == 0):
-        return pd.DataFrame(columns=["dialer", "calls", "sales", "conversion_pct", "amount"])
+    empty_result = pd.DataFrame(columns=["dialer", "calls", "sales", "conversion_pct", "amount"])
+    
+    sold_has_dialer = has_column(sold_df, "dialer")
+    no_sale_has_dialer = has_column(no_sale_df, "dialer")
+    
+    if not sold_has_dialer and not no_sale_has_dialer:
+        return empty_result
     
     sold_primary = get_primary_sales(sold_df)
     
     # Sold stats
     sold_stats = pd.DataFrame()
-    if sold_primary is not None and len(sold_primary) > 0 and "dialer" in sold_primary.columns:
+    if has_column(sold_primary, "dialer"):
         df = sold_primary.copy()
         amount_col = get_amount_column(df)
         if amount_col:
@@ -154,24 +183,33 @@ def dialer_performance(sold_df, no_sale_df):
     
     # All sold calls
     all_sold_calls = pd.DataFrame()
-    if sold_df is not None and len(sold_df) > 0 and "dialer" in sold_df.columns:
+    if has_column(sold_df, "dialer"):
         all_sold_calls = sold_df.groupby("dialer").size().reset_index(name="sold_calls")
     
     # No-sale
     no_sale_stats = pd.DataFrame()
-    if no_sale_df is not None and len(no_sale_df) > 0 and "dialer" in no_sale_df.columns:
+    if has_column(no_sale_df, "dialer"):
         no_sale_stats = no_sale_df.groupby("dialer").size().reset_index(name="no_sale_calls")
     
-    # Merge
+    # All dialers
     all_dialers = set()
     for df in [sold_stats, all_sold_calls, no_sale_stats]:
         if len(df) > 0 and "dialer" in df.columns:
-            all_dialers.update(df["dialer"].tolist())
+            all_dialers.update(df["dialer"].dropna().tolist())
+    
+    if not all_dialers:
+        return empty_result
     
     result = pd.DataFrame({"dialer": list(all_dialers)})
-    result = result.merge(sold_stats, on="dialer", how="left")
-    result = result.merge(all_sold_calls, on="dialer", how="left")
-    result = result.merge(no_sale_stats, on="dialer", how="left")
+    
+    for df in [sold_stats, all_sold_calls, no_sale_stats]:
+        if len(df) > 0 and "dialer" in df.columns:
+            result = result.merge(df, on="dialer", how="left")
+    
+    for col in ["sales", "amount", "sold_calls", "no_sale_calls"]:
+        if col not in result.columns:
+            result[col] = 0
+    
     result = result.fillna(0)
     
     result["calls"] = result["sold_calls"] + result["no_sale_calls"]
@@ -193,8 +231,8 @@ def dialer_performance(sold_df, no_sale_df):
 # ─────────────── Overall Stats ───────────────
 def overall_stats(sold_df, no_sale_df, orphan_df):
     """
-    Overall summary.
-    Sales count = sirf primary sales (duplicate remove).
+    Overall summary — defensive.
+    Sales count = sirf primary sales.
     """
     sold_primary = get_primary_sales(sold_df)
     
