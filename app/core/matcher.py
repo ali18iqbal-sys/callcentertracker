@@ -1,13 +1,15 @@
 """
 matcher.py — Client aur Call Center data ko match karne wala module.
+
 Phone # par match karta hai aur 3 categories banata hai:
-    - SOLD     : Dono taraf mila
-    - NO_SALE  : Sirf Call Center mein
+    - SOLD     : Dono taraf mila, amount ke saath (sirf primary sales)
+    - NO_SALE  : Baaki saari calls (CC-only + non-primary)
     - ORPHAN   : Sirf Client mein
 
 Primary sale rule (filhal):
-    1. Minutes se match (closest)
-    2. Agar minutes nahi → date se match (closest)
+    1. Minutes se closest match
+    2. Agar minutes nahi → date se closest match
+    3. Warna → pehli call
 """
 
 import pandas as pd
@@ -101,8 +103,8 @@ def match_data(client_df, cc_df):
     Client aur CC data match karo Phone # par.
     
     Returns: dict with keys:
-        sold       — Dono mein mila (sale 1 baar per phone)
-        no_sale    — Sirf CC mein (including non-primary sold calls)
+        sold       — Sirf primary sales (amount ke saath)
+        no_sale    — Baaki saari calls (CC-only + non-primary)
         orphan     — Sirf Client mein
         summary    — Counts
     """
@@ -116,6 +118,7 @@ def match_data(client_df, cc_df):
     only_client = client_phones - cc_phones
     
     # ─────────── Client Duplicates Remove ───────────
+    # Ek phone # = 1 sale (latest date wali)
     client_unique = client_df.copy()
     
     if "date" in client_unique.columns:
@@ -137,7 +140,7 @@ def match_data(client_df, cc_df):
     
     # ─────────── Primary Sale Determine ───────────
     sold_primary_rows = []
-    sold_other_rows = []
+    no_sale_non_primary_rows = []
     
     for phone in common:
         cc_group = cc_sold[cc_sold["phone"] == phone].copy()
@@ -151,36 +154,45 @@ def match_data(client_df, cc_df):
         
         for idx, row in cc_group.iterrows():
             row_dict = row.to_dict()
+            is_primary = (idx == primary_idx)
             
-            # Client data merge karo
-            row_dict["amount"] = sale_row.get("amount", None)
-            row_dict["revenue"] = sale_row.get("revenue", None)
-            row_dict["price"] = sale_row.get("price", None)
-            
-            if idx == primary_idx:
+            if is_primary:
+                # Primary — amount ke saath SOLD mein
+                row_dict["amount"] = sale_row.get("amount", None)
+                row_dict["revenue"] = sale_row.get("revenue", None)
+                row_dict["price"] = sale_row.get("price", None)
                 row_dict["_is_primary_sale"] = True
                 sold_primary_rows.append(row_dict)
             else:
+                # Non-primary — amount khali, NO-SALE mein
+                row_dict["amount"] = None
+                row_dict["revenue"] = None
+                row_dict["price"] = None
                 row_dict["_is_primary_sale"] = False
-                sold_other_rows.append(row_dict)
+                no_sale_non_primary_rows.append(row_dict)
     
-    # ─── Sold DataFrame ───
-    sold = pd.DataFrame(sold_primary_rows + sold_other_rows)
+    # ─── Sold DataFrame (sirf primary sales) ───
+    sold = pd.DataFrame(sold_primary_rows)
     
-    # ─── No-Sale mein non-primary sold calls bhi add karo ───
-    non_primary_sold = pd.DataFrame(sold_other_rows)
+    # ─── No-Sale = CC-only + Non-primary ───
+    non_primary_df = pd.DataFrame(no_sale_non_primary_rows)
     
-    if len(non_primary_sold) > 0:
-        no_sale_extra = non_primary_sold.copy()
-        no_sale_extra["amount"] = None
-        no_sale_extra["revenue"] = None
-        no_sale_extra["price"] = None
-        if "_is_primary_sale" in no_sale_extra.columns:
-            no_sale_extra = no_sale_extra.drop(columns=["_is_primary_sale"])
+    if len(non_primary_df) > 0:
+        if "_is_primary_sale" in non_primary_df.columns:
+            non_primary_df = non_primary_df.drop(columns=["_is_primary_sale"])
         
-        no_sale = pd.concat([no_sale_cc, no_sale_extra], ignore_index=True, sort=False)
+        no_sale = pd.concat(
+            [no_sale_cc, non_primary_df],
+            ignore_index=True,
+            sort=False
+        )
     else:
         no_sale = no_sale_cc
+    
+    # ─── Ensure Sold has consistent columns ───
+    if len(sold) == 0:
+        # Koi sale nahi mili — khali DataFrame
+        sold = pd.DataFrame(columns=list(cc_df.columns) + ["amount", "revenue", "price", "_is_primary_sale"])
     
     # ─────────── Summary ───────────
     summary = {
