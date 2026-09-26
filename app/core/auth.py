@@ -12,18 +12,57 @@ USERS_FILE = Path(__file__).parent.parent.parent / "users.yaml"
 
 
 def load_users_config():
-    """users.yaml load karo"""
-    if not USERS_FILE.exists():
-        raise FileNotFoundError(f"users.yaml nahi mili: {USERS_FILE}")
+    """
+    Users config load karo.
+    Pehle local users.yaml try karo, agar nahi mili toh Streamlit Secrets se.
+    """
+    # ─── Try 1: Local file (development) ───
+    if USERS_FILE.exists():
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
     
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    # ─── Try 2: Streamlit Secrets (production) ───
+    try:
+        import streamlit as st
+        if "users" in st.secrets:
+            return dict(st.secrets["users"])
+    except Exception:
+        pass
+    
+    raise FileNotFoundError(
+        "Users config nahi mili. Local 'users.yaml' ya Streamlit Secrets mein 'users' key daalein."
+    )
 
 
 def save_users_config(config):
-    """users.yaml mein save karo"""
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+    """
+    Users config save karo.
+    ⚠️ Streamlit Cloud par yeh save nahi hoga — sirf local development ke liye.
+    Production mein user changes manually Streamlit Secrets mein karein.
+    """
+    try:
+        # Local file mein save karo (development)
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        
+        # Streamlit Cloud check
+        import streamlit as st
+        if hasattr(st, "runtime") and hasattr(st.runtime, "exists"):
+            try:
+                # Agar cloud par chal rahe hain
+                if st.runtime.exists():
+                    st.warning(
+                        "⚠️ User changes saved locally, lekin Streamlit Cloud par reflect nahi honge. "
+                        "Cloud ke liye Streamlit Secrets update karein."
+                    )
+            except Exception:
+                pass
+    except Exception as e:
+        # Cloud par file write fail ho sakti hai
+        raise IOError(
+            f"User config save nahi ho saka. "
+            f"Streamlit Cloud par direct Secrets edit karein. Error: {e}"
+        )
 
 
 def create_authenticator():

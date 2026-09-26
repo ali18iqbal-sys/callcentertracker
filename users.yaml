@@ -1,7 +1,7 @@
 cookie:
   expiry_days: 1
-  key: callcentertracker_secret_key_change_me
-  name: cct_cookie
+  key: "ali_callcenter_2026_secure_random_key_SierraAlpha143"
+  name: "cct_cookie"
 credentials:
   usernames:
     admin:

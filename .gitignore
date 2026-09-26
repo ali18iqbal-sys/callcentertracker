@@ -6,17 +6,28 @@ venv/
 __pycache__/
 *.pyc
 
-# Data files (private — GitHub par nahi jayenge)
+# Data files (client data private)
 data/raw/
 data/staging/
 data/master/
 data/reports/
 
+# Sensitive configs
+data/sources.yaml
+users.yaml
+secrets.yaml
+
 # Secrets
 creds/
 secrets/
+.env
 *.key
+*.pem
 service_account.json
+
+# JSON (except sample data)
+*.json
+!sample_data/*.json
 
 # IDE
 .vscode/
@@ -26,7 +37,7 @@ service_account.json
 .DS_Store
 Thumbs.db
 
-# Test/dev scripts
+# Test/dev scripts (temporary)
 test.py
 test_phase2.py
 fix_app.py
@@ -35,3 +46,9 @@ fix_reports.py
 install_auto_fetch.py
 setup_users.py
 make_samples.py
+translate_to_english.py
+security_check.py
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
