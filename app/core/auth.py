@@ -24,29 +24,48 @@ MISSING_USERS_MESSAGE = (
 )
 
 
+import json
+
 def _plain(value):
-    """Recursively convert Streamlit secret objects into plain Python values."""
-    if isinstance(value, dict):
-        return {str(key): _plain(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_plain(item) for item in value]
-    return value
-
-
-@st.cache_data(show_spinner=False)
-def load_users_config():
-    """Load the users configuration.
-
-    Results are cached to avoid re-reading the file on every rerun; the cache is
-    invalidated automatically whenever the configuration is saved.
     """
+    Convert Streamlit secret objects into plain Python dicts.
+    Uses JSON round-trip which is safe and non-recursive.
+    """
+    try:
+        return json.loads(json.dumps(dict(value)))
+    except Exception:
+        # Fallback: manual shallow conversion
+        result = {}
+        for key in value:
+            item = value[key]
+            if isinstance(item, (dict, list)):
+                result[str(key)] = json.loads(json.dumps(dict(item) if isinstance(item, dict) else list(item)))
+            else:
+                result[str(key)] = item
+        return result
+
+
+def load_users_config():
+    """
+    Load the users configuration.
+    
+    Priority:
+        1. Local users.yaml file (development)
+        2. Streamlit Secrets (production)
+    """
+    # ─── Try 1: Local users.yaml ───
     if USERS_FILE.exists():
         with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return _plain(yaml.safe_load(f) or {})
+            data = yaml.safe_load(f) or {}
+        return data
 
+    # ─── Try 2: Streamlit Secrets ───
     try:
         if "users" in st.secrets:
-            return _plain(dict(st.secrets["users"]))
+            raw = st.secrets["users"]
+            # Convert to plain dict via JSON (safe, no recursion)
+            plain = json.loads(json.dumps(dict(raw)))
+            return plain
     except Exception:
         pass
 
@@ -54,11 +73,10 @@ def load_users_config():
 
 
 def save_users_config(config):
-    """Persist the users configuration to the local users.yaml file.
-
-    Warning:
-        Streamlit Cloud deployments are read-only. On such deployments, update
-        user records through Streamlit Secrets instead.
+    """
+    Persist the users configuration to the local users.yaml file.
+    
+    Warning: Streamlit Cloud deployments are read-only.
     """
     try:
         USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -69,8 +87,6 @@ def save_users_config(config):
             "The user configuration could not be saved. On Streamlit Cloud, "
             f"update the Secrets file directly. Details: {exc}"
         ) from exc
-
-    load_users_config.clear()
 
 
 def create_authenticator():
