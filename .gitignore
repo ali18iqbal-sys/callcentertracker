@@ -1,31 +1,50 @@
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
 
-# Data files (client data private)
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+secrets.yaml
+streamlit_secrets.toml
+creds/
+secrets/
+*.key
+*.pem
+service_account.json
+
+# Authentication / user records (contains password hashes and cookie key)
+users.yaml
+
+# Data files (client data is private)
 data/raw/
 data/staging/
 data/master/
 data/reports/
 
-# Sensitive configs
+# Auto-fetch outputs + timer state
+data/fetched/
+data/last_fetch.json
+
+# Data source registry (may contain API tokens)
 data/sources.yaml
-users.yaml
-secrets.yaml
 
-# Secrets
-creds/
-secrets/
-.env
-*.key
-*.pem
-service_account.json
+# Tooling caches and reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
 
-# JSON (except sample data)
+# JSON payloads (except sample data) — avoids leaking exported client data
 *.json
 !sample_data/*.json
 

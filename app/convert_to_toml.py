@@ -1,15 +1,22 @@
 """
-convert_to_toml.py — users.yaml ko Streamlit Secrets TOML format mein convert karo
+convert_to_toml.py — Convert users.yaml into the Streamlit Secrets TOML format.
+
+Usage (from the project root):
+
+    python app/convert_to_toml.py
+
+The generated file is written to streamlit_secrets.toml, which is git-ignored.
+Review it and paste the contents into your Streamlit Secrets settings.
 """
 
 import yaml
 from pathlib import Path
 
-# users.yaml load karo
+# Load users.yaml
 with open("users.yaml", "r", encoding="utf-8") as f:
     data = yaml.safe_load(f)
 
-# TOML banao
+# Build the TOML document
 lines = ["[users]", ""]
 
 # Credentials
@@ -39,9 +46,9 @@ output = "\n".join(lines)
 Path("streamlit_secrets.toml").write_text(output, encoding="utf-8")
 
 print("=" * 60)
-print("✅ streamlit_secrets.toml ban gaya!")
+print("streamlit_secrets.toml has been generated.")
 print("=" * 60)
 print()
-print("Ab is file ka content copy karein aur Streamlit Secrets mein paste karein.")
+print("Copy the contents of this file into your Streamlit Secrets settings.")
 print()
 print("File location: " + str(Path("streamlit_secrets.toml").absolute()))

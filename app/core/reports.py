@@ -1,13 +1,14 @@
 """
-reports.py — Custom report generation engine
-Phone # aur ID columns ko numeric metric se exclude karta hai.
+reports.py — Custom report generation engine.
+
+Phone-number and identifier columns are excluded from numeric aggregations.
 """
 
 import pandas as pd
 
 
-# ─────────────── Columns jo numeric NAHI hain ───────────────
-# Yeh columns hamesha ID ki tarah treat honge, kabhi sum/average nahi
+# ─────────────── Columns that are never numeric metrics ───────────────
+# These are always treated as identifiers and never summed or averaged
 NON_METRIC_COLUMNS = {
     "phone", "phone_number", "phone #", "mobile", "contact",
     "id", "customer_id", "order_id", "dialer_id", "team_id",
@@ -26,13 +27,13 @@ OPERATIONS = {
 
 
 def _is_id_column(col_name):
-    """Column ka naam ID type hai?"""
+    """True when the column name indicates an identifier."""
     if not col_name:
         return False
     name = str(col_name).lower().strip()
     if name in NON_METRIC_COLUMNS:
         return True
-    # Jisme "phone" ya "_id" ya " id" ho
+    # Names containing "phone", "_id" or " id"
     if "phone" in name:
         return True
     if name.endswith("_id") or name.endswith(" id"):
@@ -43,12 +44,12 @@ def _is_id_column(col_name):
 
 
 def _looks_like_phone_or_id(series):
-    """Values dekh kar pata karo ke yeh ID/phone hai?"""
+    """Determine from the values whether a column holds IDs or phone numbers."""
     try:
         values = pd.to_numeric(series, errors="coerce").dropna()
         if len(values) == 0:
             return False
-        # Agar average value 100 million se zyada hai, yeh shayad phone/ID hai
+        # An average above 100 million strongly suggests a phone number or identifier
         if values.mean() > 100_000_000:
             return True
         # Agar sab values integer aur 8 digit se zyada lambi hain
@@ -60,9 +61,7 @@ def _looks_like_phone_or_id(series):
 
 
 def get_available_columns(df):
-    """
-    Available columns list karo — phone/id ko numeric se exclude.
-    """
+    """List the available columns, excluding phone/ID columns from numeric metrics."""
     if df is None or len(df) == 0:
         return {"numeric": [], "categorical": [], "all": []}
     
@@ -73,12 +72,12 @@ def get_available_columns(df):
         if col.startswith("_"):
             continue
         
-        # ID/Phone columns skip karo
+        # Skip ID/phone columns
         if _is_id_column(col):
             categorical_cols.append(col)
             continue
         
-        # Values check karo
+        # Inspect the values
         if pd.api.types.is_numeric_dtype(df[col]):
             # Value check — agar phone jaisi hai toh skip
             if _looks_like_phone_or_id(df[col]):
@@ -100,7 +99,7 @@ def get_available_columns(df):
 
 
 def apply_calculation(df, col_a, operation, col_b=None, output_name="result"):
-    """Ek calculation apply karo"""
+    """Apply a calculation and return the result as a new DataFrame."""
     df = df.copy()
     
     if operation == "sum":
@@ -113,21 +112,21 @@ def apply_calculation(df, col_a, operation, col_b=None, output_name="result"):
             )
     elif operation == "subtract":
         if col_b is None:
-            raise ValueError("Subtract ke liye Column B zaroori hai")
+            raise ValueError("Column B is required for the subtract operation.")
         df[output_name] = (
             pd.to_numeric(df[col_a], errors="coerce") - 
             pd.to_numeric(df[col_b], errors="coerce")
         )
     elif operation == "multiply":
         if col_b is None:
-            raise ValueError("Multiply ke liye Column B zaroori hai")
+            raise ValueError("Column B is required for the multiply operation.")
         df[output_name] = (
             pd.to_numeric(df[col_a], errors="coerce") * 
             pd.to_numeric(df[col_b], errors="coerce")
         )
     elif operation == "divide":
         if col_b is None:
-            raise ValueError("Divide ke liye Column B zaroori hai")
+            raise ValueError("Column B is required for the divide operation.")
         b = pd.to_numeric(df[col_b], errors="coerce").replace(0, pd.NA)
         df[output_name] = pd.to_numeric(df[col_a], errors="coerce") / b
     elif operation == "count":
@@ -135,7 +134,7 @@ def apply_calculation(df, col_a, operation, col_b=None, output_name="result"):
     elif operation == "average":
         df[output_name] = pd.to_numeric(df[col_a], errors="coerce")
     else:
-        raise ValueError(f"Operation support nahi: {operation}")
+        raise ValueError(f"Unsupported operation: {operation}")
     
     return df
 
@@ -151,7 +150,7 @@ def filter_by_date(df, date_col, start_date, end_date):
 
 
 def generate_report(df, group_by=None, metric_col=None, aggregation="sum"):
-    """Group-by report generate karo"""
+    """Generate a group-by report."""
     if df is None or len(df) == 0:
         return pd.DataFrame()
     
@@ -200,10 +199,9 @@ def generate_report(df, group_by=None, metric_col=None, aggregation="sum"):
 
 
 def get_numeric_summary(df, columns):
-    """
-    Selected columns ka summary do.
-    
-    ⚠️ Phone/ID columns ko automatically skip karo.
+    """Summarise the selected columns.
+
+    Phone-number and ID columns are skipped automatically.
     """
     if df is None or len(df) == 0:
         return pd.DataFrame()
@@ -262,6 +260,6 @@ def get_calls_summary(df):
         for status, count in status_counts.items():
             summary[f"Status: {status}"] = int(count)
     
-    # DataFrame banao
+    # Build the DataFrame
     rows = [{"Metric": k, "Value": v} for k, v in summary.items()]
     return pd.DataFrame(rows)

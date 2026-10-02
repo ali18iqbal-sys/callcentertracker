@@ -1,10 +1,17 @@
 """
-app.py - Main Entry Point
-CallCenterTracker
+app.py — Main entry point for CallCenterTracker.
+
+Responsibilities:
+    1. Page configuration and global theming
+    2. Session bootstrap
+    3. Authentication gate
+    4. Sidebar navigation and page routing
 """
 
 import streamlit as st
+
 from app.config import get
+from app.utils import styles
 from app.utils.session import init_session
 from app.core.auth import create_authenticator, get_current_user, is_master
 from app.pages import (
@@ -19,37 +26,57 @@ from app.pages import (
     data_sources_page,
 )
 
-# --- Page Setup ---
+
+# --- Page configuration ---
 st.set_page_config(
     page_title=get("app.name", "CallCenterTracker"),
-    page_icon=":telephone:",
+    page_icon="📞",
     layout="wide",
 )
 
-# --- Session Init ---
+# --- Global theme (light corporate SaaS) ---
+styles.inject_global_css()
+
+# --- Session bootstrap ---
 init_session()
 
-if "logout" not in st.session_state:
-    st.session_state["logout"] = False
-if "authentication_status" not in st.session_state:
-    st.session_state["authentication_status"] = None
-if "username" not in st.session_state:
-    st.session_state["username"] = None
-if "name" not in st.session_state:
-    st.session_state["name"] = None
+for _key, _default in (
+    ("logout", False),
+    ("authentication_status", None),
+    ("username", None),
+    ("name", None),
+):
+    if _key not in st.session_state:
+        st.session_state[_key] = _default
 
-# Authenticator
-authenticator = create_authenticator()
+# --- Authenticator ---
+try:
+    authenticator = create_authenticator()
+except Exception as exc:  # noqa: BLE001 — configuration / secrets problems
+    st.error(
+        "Authentication configuration could not be loaded. Verify that "
+        "`users.yaml` exists in the project root for local development, or that "
+        "a `users` section is configured in Streamlit Secrets."
+    )
+    st.exception(exc)
+    st.stop()
 
-# --- Check Login ---
-auth_status = st.session_state.get("authentication_status")
-
-if not auth_status:
+# --- Authentication gate ---
+if not st.session_state.get("authentication_status"):
     login_page.render(authenticator)
     st.stop()
 
-# --- Logged In ---
+# --- Authenticated user ---
 user = get_current_user()
+if user is None:
+    # An authenticated status without a matching user record means the session
+    # is no longer valid — request a fresh sign-in instead of failing later.
+    st.session_state["authentication_status"] = None
+    st.session_state["username"] = None
+    st.session_state["name"] = None
+    st.warning("Your session has expired or is no longer valid. Please sign in again.")
+    st.stop()
+
 is_master_user = is_master()
 
 nav_items = [
@@ -65,13 +92,14 @@ if is_master_user:
     nav_items.append("Master Panel")
 
 with st.sidebar:
-    st.title("CallCenterTracker")
-    st.caption(f"v{get('app.version')} - {get('app.environment')}")
-    st.divider()
+    version = str(get("app.version", "") or "")
+    environment = str(get("app.environment", "") or "").title()
+    styles.brand_block(
+        get("app.name", "CallCenterTracker"),
+        f"Version {version} · {environment}" if version else environment,
+    )
 
-    st.markdown(f"User: **{user['name']}**")
-    role_badge = "Master" if is_master_user else "User"
-    st.caption(role_badge)
+    styles.user_card(user["name"], "master" if is_master_user else "user")
 
     st.divider()
 
@@ -85,13 +113,13 @@ with st.sidebar:
 
     st.divider()
 
-    authenticator.logout("Logout", "sidebar", key="logout_btn")
+    authenticator.logout("Sign out", "sidebar", key="logout_btn")
 
     st.divider()
-    st.caption("Auto-Fetch Ready")
-    st.caption("Phase 7 - Deployment coming next")
+    st.caption("Auto-fetch scheduler available")
+    st.caption("All data is processed locally in your session")
 
-# --- Route to Page ---
+# --- Page routing ---
 if page == "Upload":
     upload_page.render()
 elif page == "Data Sources":

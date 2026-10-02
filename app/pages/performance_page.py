@@ -1,130 +1,129 @@
 """
-performance_page.py — Team/Dialer performance dashboard
-Defensive: missing columns handled gracefully.
+performance_page.py — Team and dialer performance dashboard.
+
+Every metric is defensive: missing columns are handled gracefully and the page
+never fails because a source file lacks an expected field.
 """
 
-import streamlit as st
 import pandas as pd
-from io import BytesIO
+import streamlit as st
+
+from app.utils import styles
+from app.utils.caching import (
+    dialer_metrics,
+    download_excel_button,
+    summary_stats,
+    team_metrics,
+)
 from app.utils.session import has_result
-from app.core.analytics import team_performance, dialer_performance, overall_stats
 
 
-def df_to_excel_bytes(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Performance")
-    return output.getvalue()
+_COLUMN_CONFIG = {
+    "calls": st.column_config.NumberColumn("Calls", format="%d"),
+    "sales": st.column_config.NumberColumn("Sales", format="%d"),
+    "conversion_pct": st.column_config.NumberColumn("Conversion %", format="%.2f%%"),
+    "amount": st.column_config.NumberColumn("Amount", format="%,.0f"),
+}
 
 
 def render():
-    st.title("Performance Dashboard")
-    
+    """Render the performance dashboard."""
+    styles.page_header(
+        "Performance",
+        "Team and dialer conversion insights",
+        icon="🚀",
+    )
+
     if not has_result():
-        st.warning("Please upload and merge first")
-        st.info("Go to the **Upload** page from the left sidebar")
+        st.warning("No merge results are available yet.")
+        st.info("Open the **Upload** page, load both datasets, then run the merge to populate this dashboard.")
         return
-    
+
     result = st.session_state["merge_result"]
     sold = result["sold"]
     no_sale = result["no_sale"]
     orphan = result["orphan"]
-    
-    # ═══ OVERALL STATS ═══
+
+    # ═══ OVERALL STATISTICS ═══
     try:
-        stats = overall_stats(sold, no_sale, orphan)
-        
-        st.subheader("Overall Performance")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Calls", f"{stats['total_calls']:,}")
-        c2.metric("Sales", f"{stats['total_sales']:,}")
-        c3.metric("Conversion", f"{stats['conversion_pct']}%")
-        c4.metric("Total Amount", f"{stats['total_amount']:,.0f}")
-    except Exception as e:
-        st.error(f"Could not calculate overall stats: {e}")
-    
+        stats = summary_stats(sold, no_sale, orphan)
+        with styles.card():
+            st.subheader("Overall Performance")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Calls", f"{stats['total_calls']:,}")
+            c2.metric("Sales", f"{stats['total_sales']:,}")
+            c3.metric("Conversion", f"{stats['conversion_pct']}%")
+            c4.metric("Total Amount", f"{stats['total_amount']:,.0f}")
+    except Exception as exc:  # noqa: BLE001 — surfaced to the user
+        st.error(f"Overall statistics could not be calculated: {exc}")
+
     st.divider()
-    
-    # ═══ TABS: TEAM / DIALER ═══
-    tab1, tab2 = st.tabs(["Team-wise", "Dialer-wise"])
-    
+
+    # ═══ TEAM / DIALER TABS ═══
+    tab_team, tab_dialer = st.tabs(["Team-wise", "Dialer-wise"])
+
     # ─── TEAM ───
-    with tab1:
+    with tab_team:
         try:
-            team_df = team_performance(sold, no_sale)
-        except Exception as e:
-            st.error(f"Team performance error: {e}")
+            team_df = team_metrics(sold, no_sale)
+        except Exception as exc:  # noqa: BLE001 — surfaced to the user
+            st.error(f"Team performance could not be calculated: {exc}")
             team_df = pd.DataFrame()
-        
+
         if len(team_df) > 0:
             st.caption("Team-wise performance (sorted by amount)")
             st.dataframe(
                 team_df,
                 use_container_width=True,
                 height=400,
-                column_config={
-                    "team": "Team",
-                    "calls": st.column_config.NumberColumn("Calls", format="%d"),
-                    "sales": st.column_config.NumberColumn("Sales", format="%d"),
-                    "conversion_pct": st.column_config.NumberColumn("Conv %", format="%.2f%%"),
-                    "amount": st.column_config.NumberColumn("Amount", format="%,.0f"),
-                },
+                column_config={"team": "Team", **_COLUMN_CONFIG},
             )
-            
-            # Chart
+
             try:
-                st.subheader("Conversion % (Team-wise)")
-                chart_data = team_df[["team", "conversion_pct"]].set_index("team")
-                st.bar_chart(chart_data)
-            except Exception:
+                st.subheader("Conversion by Team")
+                st.bar_chart(team_df[["team", "conversion_pct"]].set_index("team"))
+            except Exception:  # noqa: BLE001 — charts are best effort
                 pass
-            
-            st.download_button(
+
+            download_excel_button(
                 "Download Team Performance (Excel)",
-                df_to_excel_bytes(team_df),
-                file_name="team_performance.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                team_df,
+                "team_performance.xlsx",
+                sheet_name="Performance",
             )
         else:
-            st.warning("No team data available.")
-            st.info("Make sure your Call Center file has a **Team** column.")
-    
+            st.warning("No team data is available.")
+            st.info("Verify that the call center file contains a **Team** column.")
+
     # ─── DIALER ───
-    with tab2:
+    with tab_dialer:
         try:
-            dialer_df = dialer_performance(sold, no_sale)
-        except Exception as e:
-            st.error(f"Dialer performance error: {e}")
+            dialer_df = dialer_metrics(sold, no_sale)
+        except Exception as exc:  # noqa: BLE001 — surfaced to the user
+            st.error(f"Dialer performance could not be calculated: {exc}")
             dialer_df = pd.DataFrame()
-        
+
         if len(dialer_df) > 0:
             st.caption("Dialer-wise performance (sorted by amount)")
             st.dataframe(
                 dialer_df,
                 use_container_width=True,
                 height=400,
-                column_config={
-                    "dialer": "Dialer",
-                    "calls": st.column_config.NumberColumn("Calls", format="%d"),
-                    "sales": st.column_config.NumberColumn("Sales", format="%d"),
-                    "conversion_pct": st.column_config.NumberColumn("Conv %", format="%.2f%%"),
-                    "amount": st.column_config.NumberColumn("Amount", format="%,.0f"),
-                },
+                column_config={"dialer": "Dialer", **_COLUMN_CONFIG},
             )
-            
+
             try:
-                st.subheader("Amount (Dialer-wise)")
-                chart_data = dialer_df[["dialer", "amount"]].set_index("dialer")
-                st.bar_chart(chart_data)
-            except Exception:
+                st.subheader("Amount by Dialer")
+                st.bar_chart(dialer_df[["dialer", "amount"]].set_index("dialer"))
+            except Exception:  # noqa: BLE001 — charts are best effort
                 pass
-            
-            st.download_button(
+
+            download_excel_button(
                 "Download Dialer Performance (Excel)",
-                df_to_excel_bytes(dialer_df),
-                file_name="dialer_performance.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                dialer_df,
+                "dialer_performance.xlsx",
+                sheet_name="Performance",
             )
         else:
-            st.warning("No dialer data available.")
-            st.info("Make sure your Call Center file has a **Dialer** column.")
+            st.warning("No dialer data is available.")
+            st.info("Verify that the call center file contains a **Dialer** column.")

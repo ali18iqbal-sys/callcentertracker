@@ -27,7 +27,12 @@ columns:
     - "phone number"
     - "mobile"
     - "contact"
+    - "contact #"
     - "phone no"
+    - "call"
+    - "calling"
+    - "calling #"
+    - "number"
   price:
     - "price"
     - "rate"
@@ -70,7 +75,11 @@ features:
   email_scheduler: false
   whatsapp_alerts: false
   public_share_link: false
-  auto_fetch_gsheet: false
+  auto_fetch_gsheet: true
+  auto_fetch_api: true
+  auto_fetch_ringba: true
+  scheduled_fetch: true
+  excel_multisheet_merge: true
   api_endpoint: false
   client_portal: false
   commission_calc: false

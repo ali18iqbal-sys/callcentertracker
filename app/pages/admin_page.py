@@ -1,6 +1,7 @@
 """
-admin_page.py — Master Panel (User Management)
-Sirf Master role ke liye.
+admin_page.py — Master panel (user administration).
+
+Restricted to users holding the Master role.
 """
 
 import streamlit as st
@@ -14,72 +15,70 @@ from app.core.auth import (
     delete_user,
     get_current_user,
 )
+from app.utils import styles
 
 
 def render():
-    """Master Panel page"""
-    
+    """Render the Master Panel page."""
+
     user = get_current_user()
-    
-    # Guard: sirf master access kar sakta hai
+
+    # Access control: only the Master role may open this page
     if not user or user.get("role") != "master":
-        st.error("❌ Only Master role users can access this page")
+        st.error("This page is restricted to users with the Master role.")
         st.stop()
-    
-    st.title("👑 Master Panel")
-    st.caption("Manage users — add, edit, disable, change password")
-    
+
+    styles.page_header(
+        "Master Panel",
+        "Manage users — add, edit, disable accounts and reset passwords",
+        icon="👑",
+    )
+
     st.divider()
-    
+
     # ═══ TABS ═══
-    tab1, tab2, tab3 = st.tabs(["👥 Users", "➕ Add User", "🔑 Change Password"])
-    
+    tab_users, tab_add, tab_password = st.tabs(["Users", "Add User", "Change Password"])
+
     # ─────────── TAB 1: USERS LIST ───────────
-    with tab1:
-        st.subheader("📋 User List")
+    with tab_users:
+        st.subheader("User List")
         
         users = list_users()
         
         if users:
             df = pd.DataFrame(users)
-            
-            # Status column
-            df["status"] = df["disabled"].apply(lambda x: "⏸️ Disabled" if x else "✅ Active")
-            
+            df["status"] = df["disabled"].apply(lambda x: "Disabled" if x else "Active")
+
             st.dataframe(
                 df[["username", "name", "email", "role", "status"]],
                 use_container_width=True,
                 hide_index=True,
             )
-            
+
             st.divider()
-            st.subheader("⚙️ User Actions")
-            
-            # Select user
+            st.subheader("User Actions")
+
             usernames = [u["username"] for u in users]
-            selected = st.selectbox("Choose user", usernames, key="user_actions_select")
-            
+            selected = st.selectbox("Select a user", usernames, key="user_actions_select")
+
             if selected:
                 selected_info = next(u for u in users if u["username"] == selected)
-                
+
                 col1, col2, col3 = st.columns(3)
-                
-                # Toggle disable/enable
+
+                # Enable or disable the account
                 with col1:
-                    if selected_info["disabled"]:
-                        if st.button("✅ Enable", key="enable_btn", use_container_width=True):
-                            ok, msg = toggle_user_disabled(selected)
-                            if ok:
-                                st.success(msg)
-                                st.rerun()
-                    else:
-                        if st.button("⏸️ Disable", key="disable_btn", use_container_width=True):
-                            ok, msg = toggle_user_disabled(selected)
-                            if ok:
-                                st.success(msg)
-                                st.rerun()
-                
-                # Edit role
+                    action = "Enable" if selected_info["disabled"] else "Disable"
+                    key = "enable_btn" if selected_info["disabled"] else "disable_btn"
+                    if st.button(action, key=key, use_container_width=True):
+                        ok, msg = toggle_user_disabled(selected)
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+
+                # Change the role
                 with col2:
                     new_role = st.selectbox(
                         "Change Role",
@@ -88,16 +87,18 @@ def render():
                         key="role_change",
                     )
                     if new_role != selected_info["role"]:
-                        if st.button("💾 Save Role", key="save_role", use_container_width=True):
+                        if st.button("Save Role", key="save_role", use_container_width=True):
                             ok, msg = update_user(selected, role=new_role)
                             if ok:
                                 st.success(msg)
                                 st.rerun()
-                
-                # Delete user
+                            else:
+                                st.error(msg)
+
+                # Delete the account
                 with col3:
                     if selected != "admin":
-                        if st.button("🗑️ Delete", key="delete_btn", use_container_width=True):
+                        if st.button("Delete", key="delete_btn", use_container_width=True):
                             ok, msg = delete_user(selected)
                             if ok:
                                 st.success(msg)
@@ -105,40 +106,39 @@ def render():
                             else:
                                 st.error(msg)
                     else:
-                        st.caption("((admin cannot be deleted))")
+                        st.caption("The admin account cannot be deleted.")
         else:
-            st.info("No users found")
-    
+            st.info("No users are configured.")
+
     # ─────────── TAB 2: ADD USER ───────────
-    with tab2:
-        st.subheader("➕ Add New User")
+    with tab_add:
+        st.subheader("Add New User")
         
         with st.form("add_user_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
-                new_username = st.text_input("Username *", placeholder="jaise: ahmed")
-                new_name = st.text_input("Full Name", placeholder="Ahmed Khan")
-            
+                new_username = st.text_input("Username *", placeholder="e.g. j.smith")
+                new_name = st.text_input("Full Name", placeholder="Jane Smith")
+
             with col2:
-                new_email = st.text_input("Email", placeholder="ahmed@callcenter.local")
+                new_email = st.text_input("Email", placeholder="jane.smith@company.com")
                 new_role = st.selectbox("Role", ["user", "master"], index=0)
-            
-            new_password = st.text_input("Password *", type="password", placeholder="min 6 characters")
+
+            new_password = st.text_input("Password *", type="password", placeholder="Minimum 6 characters")
             new_password_confirm = st.text_input("Confirm Password *", type="password")
-            
-            submit = st.form_submit_button("💾 Add User", type="primary", use_container_width=True)
-            
+
+            submit = st.form_submit_button("Add User", type="primary", use_container_width=True)
+
             if submit:
-                # Validation
                 if not new_username or not new_password:
-                    st.error("❌ Username and Password are required")
+                    st.error("Username and password are required.")
                 elif len(new_password) < 6:
-                    st.error("❌ Password must be at least 6 characters")
+                    st.error("The password must be at least 6 characters long.")
                 elif new_password != new_password_confirm:
-                    st.error("❌ Passwords do not match")
+                    st.error("The passwords do not match.")
                 elif " " in new_username:
-                    st.error("❌ Username cannot contain spaces")
+                    st.error("The username cannot contain spaces.")
                 else:
                     ok, msg = add_user(
                         username=new_username.strip().lower(),
@@ -148,36 +148,37 @@ def render():
                         role=new_role,
                     )
                     if ok:
-                        st.success(f"✅ {msg}")
-                        st.balloons()
+                        st.success(msg)
                     else:
-                        st.error(f"❌ {msg}")
-    
+                        st.error(msg)
+
     # ─────────── TAB 3: CHANGE PASSWORD ───────────
-    with tab3:
-        st.subheader("🔑 Change Password")
-        
+    with tab_password:
+        st.subheader("Change Password")
+
         users = list_users()
         usernames = [u["username"] for u in users]
-        
-        selected_pw_user = st.selectbox("Choose user", usernames, key="pw_change_select")
-        
+
+        selected_pw_user = st.selectbox("Select a user", usernames, key="pw_change_select")
+
         with st.form("change_pw_form", clear_on_submit=True):
             new_pw = st.text_input("New Password *", type="password")
             new_pw_confirm = st.text_input("Confirm New Password *", type="password")
-            
-            submit_pw = st.form_submit_button("💾 Change Password", type="primary", use_container_width=True)
-            
+
+            submit_pw = st.form_submit_button(
+                "Change Password", type="primary", use_container_width=True
+            )
+
             if submit_pw:
                 if not new_pw:
-                    st.error("❌ Password is required")
+                    st.error("A password is required.")
                 elif len(new_pw) < 6:
-                    st.error("❌ Password must be at least 6 characters")
+                    st.error("The password must be at least 6 characters long.")
                 elif new_pw != new_pw_confirm:
-                    st.error("❌ Passwords do not match")
+                    st.error("The passwords do not match.")
                 else:
                     ok, msg = change_password(selected_pw_user, new_pw)
                     if ok:
-                        st.success(f"✅ {msg}")
+                        st.success(msg)
                     else:
-                        st.error(f"❌ {msg}")
+                        st.error(msg)

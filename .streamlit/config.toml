@@ -1,0 +1,16 @@
+# CallCenterTracker — Streamlit theme (clean, light corporate SaaS)
+#
+# The widget-level palette (primary / background / text) lives here so that
+# Streamlit's native widgets stay in sync with the application theme. Component
+# styling (cards, sidebar, badges, hero header) lives in app/utils/styles.py.
+
+[theme]
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#F8FAFC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F172A"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

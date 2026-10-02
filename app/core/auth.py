@@ -1,5 +1,10 @@
 """
-auth.py — Login / Authentication helpers + User CRUD
+auth.py — Authentication helpers and user management.
+
+User records are loaded from a local ``users.yaml`` (development) or from
+Streamlit Secrets (production). Passwords are only ever stored as bcrypt
+hashes, and the cookie signing key may be overridden with the
+``CCT_COOKIE_KEY`` environment variable.
 """
 
 from pathlib import Path
@@ -7,91 +12,96 @@ import yaml
 import streamlit as st
 import streamlit_authenticator as stauth
 
+from app.utils.secrets import get_cookie_key
 
-USERS_FILE = Path(__file__).parent.parent.parent / "users.yaml"
+
+USERS_FILE = Path(__file__).resolve().parent.parent.parent / "users.yaml"
+
+MISSING_USERS_MESSAGE = (
+    "Authentication configuration was not found. Provide a users.yaml file in "
+    "the project root for local development, or a 'users' section in Streamlit "
+    "Secrets for production deployments."
+)
 
 
+def _plain(value):
+    """Recursively convert Streamlit secret objects into plain Python values."""
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return value
+
+
+@st.cache_data(show_spinner=False)
 def load_users_config():
+    """Load the users configuration.
+
+    Results are cached to avoid re-reading the file on every rerun; the cache is
+    invalidated automatically whenever the configuration is saved.
     """
-    Users config load karo.
-    Pehle local users.yaml try karo, agar nahi mili toh Streamlit Secrets se.
-    """
-    # ─── Try 1: Local file (development) ───
     if USERS_FILE.exists():
         with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
-    
-    # ─── Try 2: Streamlit Secrets (production) ───
+            return _plain(yaml.safe_load(f) or {})
+
     try:
-        import streamlit as st
         if "users" in st.secrets:
-            return dict(st.secrets["users"])
+            return _plain(dict(st.secrets["users"]))
     except Exception:
         pass
-    
-    raise FileNotFoundError(
-        "Users config nahi mili. Local 'users.yaml' ya Streamlit Secrets mein 'users' key daalein."
-    )
+
+    raise FileNotFoundError(MISSING_USERS_MESSAGE)
 
 
 def save_users_config(config):
-    """
-    Users config save karo.
-    ⚠️ Streamlit Cloud par yeh save nahi hoga — sirf local development ke liye.
-    Production mein user changes manually Streamlit Secrets mein karein.
+    """Persist the users configuration to the local users.yaml file.
+
+    Warning:
+        Streamlit Cloud deployments are read-only. On such deployments, update
+        user records through Streamlit Secrets instead.
     """
     try:
-        # Local file mein save karo (development)
+        USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-        
-        # Streamlit Cloud check
-        import streamlit as st
-        if hasattr(st, "runtime") and hasattr(st.runtime, "exists"):
-            try:
-                # Agar cloud par chal rahe hain
-                if st.runtime.exists():
-                    st.warning(
-                        "⚠️ User changes saved locally, lekin Streamlit Cloud par reflect nahi honge. "
-                        "Cloud ke liye Streamlit Secrets update karein."
-                    )
-            except Exception:
-                pass
-    except Exception as e:
-        # Cloud par file write fail ho sakti hai
+    except OSError as exc:
         raise IOError(
-            f"User config save nahi ho saka. "
-            f"Streamlit Cloud par direct Secrets edit karein. Error: {e}"
-        )
+            "The user configuration could not be saved. On Streamlit Cloud, "
+            f"update the Secrets file directly. Details: {exc}"
+        ) from exc
+
+    load_users_config.clear()
 
 
 def create_authenticator():
-    """
-    Authenticator object banao.
-    ⚠️ Yeh function har run mein SIRF EK BAAR call hona chahiye.
+    """Build the authentication widget handler.
+
+    A fresh handler is created on every rerun on purpose: it guarantees that
+    disabled accounts and password changes take effect immediately. The file
+    read behind it is cached, so this stays inexpensive.
     """
     config = load_users_config()
-    authenticator = stauth.Authenticate(
+    cookie = config.get("cookie", {}) or {}
+    return stauth.Authenticate(
         config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
+        cookie.get("name", "cct_cookie"),
+        get_cookie_key(cookie.get("key", "")),
+        int(cookie.get("expiry_days", 1)),
     )
-    return authenticator
 
 
 def get_current_user():
-    """Current logged-in user ka info do"""
+    """Return the currently authenticated user's profile, or None."""
     if not st.session_state.get("authentication_status"):
         return None
-    
+
     username = st.session_state.get("username")
     if not username:
         return None
-    
+
     config = load_users_config()
-    user_info = config["credentials"]["usernames"].get(username, {})
-    
+    user_info = config.get("credentials", {}).get("usernames", {}).get(username, {})
+
     return {
         "username": username,
         "name": st.session_state.get("name", username),
@@ -101,18 +111,19 @@ def get_current_user():
 
 
 def is_master():
-    """Kya current user master hai?"""
+    """True when the current user holds the master (administrator) role."""
     user = get_current_user()
     return user is not None and user.get("role") == "master"
 
 
 def hash_password(password):
-    """Password ko hash karo"""
+    """Hash a plaintext password with bcrypt."""
     return stauth.Hasher.hash(password)
 
 
 # ─────────────── User CRUD ───────────────
 def list_users():
+    """Return every configured user as a list of dictionaries."""
     config = load_users_config()
     users = []
     for username, info in config["credentials"]["usernames"].items():
@@ -127,14 +138,19 @@ def list_users():
 
 
 def add_user(username, name, email, password, role="user"):
+    """Create a new user account.
+
+    Returns:
+        tuple[bool, str]: success flag and a human-readable status message.
+    """
     if not username or not password:
-        return False, "Username aur password zaroori hain"
-    
+        return False, "Username and password are required."
+
     config = load_users_config()
-    
+
     if username in config["credentials"]["usernames"]:
-        return False, f"Username '{username}' pehle se mojood hai"
-    
+        return False, f"Username '{username}' already exists."
+
     config["credentials"]["usernames"][username] = {
         "email": email or f"{username}@callcenter.local",
         "name": name or username,
@@ -142,17 +158,18 @@ def add_user(username, name, email, password, role="user"):
         "role": role,
         "disabled": False,
     }
-    
+
     save_users_config(config)
-    return True, f"User '{username}' add ho gaya"
+    return True, f"User '{username}' was created successfully."
 
 
 def update_user(username, name=None, email=None, role=None):
+    """Update a user's profile fields. Returns (success, message)."""
     config = load_users_config()
-    
+
     if username not in config["credentials"]["usernames"]:
-        return False, f"User '{username}' nahi mila"
-    
+        return False, f"User '{username}' was not found."
+
     user = config["credentials"]["usernames"][username]
     if name is not None:
         user["name"] = name
@@ -160,46 +177,49 @@ def update_user(username, name=None, email=None, role=None):
         user["email"] = email
     if role is not None:
         user["role"] = role
-    
+
     save_users_config(config)
-    return True, f"User '{username}' update ho gaya"
+    return True, f"User '{username}' was updated successfully."
 
 
 def change_password(username, new_password):
+    """Set a new password for a user. Returns (success, message)."""
     config = load_users_config()
-    
+
     if username not in config["credentials"]["usernames"]:
-        return False, f"User '{username}' nahi mila"
-    
+        return False, f"User '{username}' was not found."
+
     config["credentials"]["usernames"][username]["password"] = hash_password(new_password)
     save_users_config(config)
-    return True, f"Password '{username}' ka change ho gaya"
+    return True, f"The password for '{username}' was updated successfully."
 
 
 def toggle_user_disabled(username):
+    """Enable or disable a user account. Returns (success, message)."""
     config = load_users_config()
-    
+
     if username not in config["credentials"]["usernames"]:
-        return False, f"User '{username}' nahi mila"
-    
+        return False, f"User '{username}' was not found."
+
     user = config["credentials"]["usernames"][username]
     current = user.get("disabled", False)
     user["disabled"] = not current
     save_users_config(config)
-    
+
     status = "disabled" if not current else "enabled"
-    return True, f"User '{username}' {status} ho gaya"
+    return True, f"User '{username}' was {status} successfully."
 
 
 def delete_user(username):
+    """Delete a user account. Returns (success, message)."""
     config = load_users_config()
-    
+
     if username not in config["credentials"]["usernames"]:
-        return False, f"User '{username}' nahi mila"
-    
+        return False, f"User '{username}' was not found."
+
     if username == "admin":
-        return False, "Admin user ko delete nahi kar sakte"
-    
+        return False, "The admin account cannot be deleted."
+
     del config["credentials"]["usernames"][username]
     save_users_config(config)
-    return True, f"User '{username}' delete ho gaya"
+    return True, f"User '{username}' was deleted successfully."

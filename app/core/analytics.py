@@ -1,17 +1,19 @@
 """
-analytics.py — Performance metrics calculate karne wala module
-Team-wise, Dialer-wise conversion, amounts, dates.
-Revenue aur amount dono handle karta hai.
-Duplicate sales ko 1 baar count karta hai (_is_primary_sale).
+analytics.py — Performance metric calculations.
 
-⚠️ Har function defensive hai — agar column nahi mila toh crash nahi hoga.
+Provides team-wise and dialer-wise conversion, amounts and date handling.
+Both revenue and amount columns are supported.
+Duplicate sales are counted once (via _is_primary_sale).
+
+Note:
+    Every function is defensive: a missing column never raises.
 """
 
 import pandas as pd
 
 
 def to_numeric_safe(series):
-    """String ko number mein safely convert karo"""
+    """Convert a series to numbers safely, ignoring formatting artefacts."""
     if series is None:
         return pd.Series(dtype=float)
     return pd.to_numeric(
@@ -21,7 +23,7 @@ def to_numeric_safe(series):
 
 
 def safe_round(value, decimals=2):
-    """Value ko safely round karo"""
+    """Round a value safely, returning 0 for anything non-numeric."""
     try:
         if pd.isna(value):
             return 0
@@ -31,7 +33,7 @@ def safe_round(value, decimals=2):
 
 
 def safe_sum(series):
-    """Series ka safe sum"""
+    """Sum a series safely, returning 0 when it is empty."""
     if series is None or len(series) == 0:
         return 0
     numeric = to_numeric_safe(series)
@@ -42,7 +44,7 @@ def safe_sum(series):
 
 
 def get_amount_column(df):
-    """DataFrame mein amount ya revenue column dhoondo"""
+    """Return the name of the amount or revenue column, if present."""
     if df is None or len(df) == 0:
         return None
     if "amount" in df.columns:
@@ -53,9 +55,9 @@ def get_amount_column(df):
 
 
 def get_primary_sales(df):
-    """
-    Sirf primary sales rows filter karo.
-    Agar _is_primary_sale column nahi hai toh saari rows return karo.
+    """Filter a DataFrame down to primary sales rows only.
+
+    When the _is_primary_sale column is absent, every row is returned.
     """
     if df is None or len(df) == 0:
         return df
@@ -65,20 +67,20 @@ def get_primary_sales(df):
 
 
 def has_column(df, col):
-    """DataFrame mein column hai ya nahi"""
+    """True when the DataFrame is non-empty and contains the given column."""
     return df is not None and len(df) > 0 and col in df.columns
 
 
 # ─────────────── Team Performance ───────────────
 def team_performance(sold_df, no_sale_df):
-    """
-    Team-wise performance.
-    Sales count = sirf primary sales (duplicate remove)
-    Calls count = saari calls
+    """Team-wise performance.
+
+    Sales count = primary sales only (duplicates removed)
+    Calls count = all calls
     """
     empty_result = pd.DataFrame(columns=["team", "calls", "sales", "conversion_pct", "amount"])
     
-    # ─── Check: team column exist karta hai? ───
+    # ─── Check: does the team column exist? ───
     sold_has_team = has_column(sold_df, "team")
     no_sale_has_team = has_column(no_sale_df, "team")
     
@@ -230,9 +232,9 @@ def dialer_performance(sold_df, no_sale_df):
 
 # ─────────────── Overall Stats ───────────────
 def overall_stats(sold_df, no_sale_df, orphan_df):
-    """
-    Overall summary — defensive.
-    Sales count = sirf primary sales.
+    """Overall summary — defensive.
+
+    Sales count = primary sales only.
     """
     sold_primary = get_primary_sales(sold_df)
     
@@ -245,7 +247,7 @@ def overall_stats(sold_df, no_sale_df, orphan_df):
     total_sales = sold_primary_len
     conversion = (total_sales / total_calls * 100) if total_calls > 0 else 0
     
-    # Amount sirf primary sales se
+    # Amount is taken from primary sales only
     total_amount = 0
     if sold_primary is not None and len(sold_primary) > 0:
         amount_col = get_amount_column(sold_primary)

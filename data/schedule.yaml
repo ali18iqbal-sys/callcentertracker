@@ -1,0 +1,13 @@
+# CallCenterTracker — Auto-fetch timer configuration
+# This file can also be edited from the "Data Sources → Schedule" tab.
+
+enabled: false            # set to true to activate automatic fetching
+mode: interval            # 'interval' (every N minutes) or 'times' (specific times)
+interval_minutes: 60      # used in interval mode
+times:                    # used in times mode (24-hour clock, local time)
+  - "09:00"
+  - "13:00"
+  - "18:00"
+sources: []               # empty = all enabled sources; otherwise a list of names
+run_on_start: true        # fetch immediately on the first run (no last_run yet)
+persist_to_disk: true     # write fetched data to data/fetched/
