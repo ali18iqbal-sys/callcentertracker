@@ -7,12 +7,30 @@ credentials:
     admin:
       email: admin@callcenter.local
       name: Admin
-      password: $2b$12$jIEoLEh8jqzGl367IvHq0OZHoARYQkRPWAUrpbo0o2tYRinXpOtn6
+      password: $2b$12$kDkXPy4V5lU24kjEJ6zNM.HG4mLQ47N7gOWlTAZv274LUFR316i56
       role: master
-    key: ali_callcenter_2026_secure_random_key_xyz123
+    user1:
       email: user1@callcenter.local
       name: Demo User
-      password: $2b$12$H9/cp2J.yJ/PACRCt9kIXuhMfv/lCEhO6FoZssML7.K309GZzEPSe
+      password: $2b$12$snCEVtR5D7/0IHJA3hz6t.LORtlfKIGaY8d/3esUKX4TDQKF8wQgG
+      role: user
+preauthorized:
+  emails: []
+cookie:
+  expiry_days: 1
+  key: "ali_callcenter_2026_secure_random_key_xyz123"
+  name: cct_cookie
+credentials:
+  usernames:
+    admin:
+      email: admin@callcenter.local
+      name: Admin
+      password: "$2b$12$kDkXPy4V5lU24kjEJ6zNM.HG4mLQ47N7gOWlTAZv274LUFR316i56"
+      role: master
+    user1:
+      email: user1@callcenter.local
+      name: Demo User
+      password: "$2b$12$snCEVtR5D7/0IHJA3hz6t.LORtlfKIGaY8d/3esUKX4TDQKF8wQgG"
       role: user
 preauthorized:
   emails: []
